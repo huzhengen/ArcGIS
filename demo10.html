@@ -1,0 +1,70 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>ArcGIS JavaScript Tutorials: Create a Starter App</title>
+    <style>
+    html,
+    body,
+    #viewDiv {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        width: 100%;
+    }
+    </style>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.12/esri/css/main.css">
+    <script src="https://js.arcgis.com/4.12/"></script>
+    <script>
+    require([
+        "esri/Map",
+        "esri/views/MapView",
+        "esri/Basemap",
+        "esri/layers/VectorTileLayer",
+        //*** ADD ***//
+        "esri/layers/TileLayer"
+    ], function(Map, MapView, Basemap, VectorTileLayer, TileLayer) {
+
+        var basemap = new Basemap({
+            baseLayers: [
+
+                //*** ADD ***//
+                new TileLayer({
+                    portalItem: {
+                        id: "1b243539f4514b6ba35e7d995890db1d" // World Hillshade
+                    }
+                }),
+
+                new VectorTileLayer({
+                    portalItem: {
+                        id: "d2ff12395aeb45998c1b154e25d680e5" // Forest and Parks Canvas
+                    },
+                    opacity: 1
+                })
+            ]
+        });
+
+        var map = new Map({
+            //*** ADD ***//
+            // basemap: "topo-vector",
+            basemap: basemap
+        });
+
+        var view = new MapView({
+            container: "viewDiv",
+            map: map,
+            center: [-255.80543, 33.02700],
+            //*** UPDATE ***//
+            zoom: 5
+        });
+
+    });
+    </script>
+</head>
+
+<body>
+    <div id="viewDiv"></div>
+</body>
+
+</html>

@@ -70,6 +70,31 @@
             labelingInfo: [trailheadsLabels]
         });
 
+        var trailsRenderer = {
+            type: "simple",
+            symbol: {
+                color: "#BA55D3",
+                type: "simple-line",
+                style: "solid"
+            },
+            visualVariables: [{
+                type: "size",
+                field: "ELEV_GAIN",
+                minDataValue: 0,
+                maxDataValue: 2300,
+                minSize: "3px",
+                maxSize: "7px"
+            }]
+        };
+
+        var trails = new FeatureLayer({
+            url: "https://services3.arcgis.com/GVgbJbqm8hXASVYi/arcgis/rest/services/Trails/FeatureServer/0",
+            renderer: trailsRenderer,
+            opacity: .75
+        });
+
+        map.add(trails, 0);
+
         map.add(trailheads);
 
     });
