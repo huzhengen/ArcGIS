@@ -1,0 +1,2660 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>ArcGIS JavaScript Tutorials: Create a JavaScript starter app</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.11/esri/themes/light/main.css">
+    <script src="https://js.arcgis.com/3.15/"></script>
+    <style>
+    html,
+    body,
+    #viewDiv {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        width: 100%;
+    }
+    </style>
+</head>
+
+<body>
+    <div id="mapDiv"></div>
+
+    <!--全局变量-->
+    <script>
+    	var map;
+    	var lbg;
+    	var districtLayer;
+    	var districtLayerProv;//单独省界
+		var troubleLayer;//施工/隐患显示层
+    	
+		var drawLayerNet1Line,drawLayerNet1Point,drawLayerNet1Txt;//1级网:线层，点层,文本层
+		var drawLayerNet2Line,drawLayerNet2Point,drawLayerNet2Txt;//2级网:线层，点层,文本层
+		var drawLayerNet3Line,drawLayerNet3Point,drawLayerNet3Txt;//3级网:线层，点层,文本层
+		var drawLayerNet4Line,drawLayerNet4Point,drawLayerNet4Txt;//4级(信息点)网:线层，点层,文本层
+		var ll0,lp0,lt0;//路由/方案查询结果,不含信息点信息:线层，点层,文本层(含信息点的非信息点文本信息均在此层)
+		var lli,lpi,lti;//光缆编辑/路由查询结果,含信息点:线层，点层,信息点文本层
+		var lmn;//巡检分省数量显示层，暂时点和文本也在此层显示
+		var lmu;//巡检视界范围内人员位置显示层，暂时点和文本也在此层显示
+		var lmt;//巡检线视界内巡检轨迹显示层，暂时点和文本也在此层显示
+
+		var lsp,lst;//已选 择标识点的显示层
+
+		var letmp;//临时层。
+		var letop;//最高显示层，也作为测距线层。
+
+		var isMonitor=false;//是否处于巡检监控状态
+		var timeOptMonitor=null;//光缆巡检定时器
+		var timeOptMonitorRefreshMinSecond=5;//光缆巡检定时最小刷新时间,秒
+		var optMonitorRefreshMaxRatio=24;//光缆巡检定时系数，optMonitorRefreshMaxRatio*timeOptMonitorRefreshMinSecond为刷新时间间隔
+		var optMonitorRefreshRatio=24;//光缆巡检定时系数，optMonitorRefreshRatio*timeOptMonitorRefreshMinSecond为当前还有多少时间刷新
+
+		var mapCtrlState=0;//0-无控制状态；1-测距开始；2-测距中；
+		var mapDmPos=new Array();//记录测距点阵列
+		var mapDmPosNum=0;//测距点数量
+		var mapDmSum=0;//累计距离；
+		
+		var canMoveSt=true;//是否允许移动点
+		var showInfoPointLable=false;//是否显示信息点标签
+		var isPointNeedToSave=false;//是否有点被移动在，需保存。
+		
+		var lastResId=null;	    //上个鼠标所在TOPO资源
+		var lastResGroupId=null;	//上个鼠标所在资源组
+		var lastResType=null;	//上个鼠标所在TOPO资源类型
+		
+		var ctxMenuForOptNet12Point;//ctxMenuForGraphicsPoint;//1/2级光缆网点上上下文菜单
+		var ctxMenuForOptNetLine;//ctxMenuForGraphicsLine;//光缆网线上上下文菜单
+		var ctxMenuForOptPoint;//光缆上及3级光缆网上点下文菜单
+		var ctxMenuForOptLine;//光缆上线上下文菜单
+    	var selectedGraphic;//graphic对象
+    	var eventMenuGraphic;//菜单相关的事件对象
+
+		
+		var xmlhttp;
+		if (window.XMLHttpRequest)
+		{// code for IE7+, Firefox, Chrome, Opera, Safari
+			xmlhttp=new XMLHttpRequest();
+		}
+		else
+		{// code for IE6, IE5
+			xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+		}
+
+		//地图显示参数:
+		var showStNameLev=7;//显示站点名的地图级别
+		var net1_2_level=5;//网络1/2切换的地图级别
+		var net2_3_level=9;//网络2/3切换的地图级别
+		var startShowOptInfoLevel=11;//开始显示光缆信息点的级别
+		var startShowNetInfoLevel=16;//开始显示网络信息点的级别
+		var showNet=false;//是否显示网络
+		
+		var netDrawed1=false;//网络1是否已绘
+		var netDrawed2=false;//网络2是否已绘
+		var netDrawed3=false;//网络3是否已绘
+		var curNetLevel=1;//当前网络的级别:1,2,3
+		var OptNetProvId=-1//-1;
+		
+		var browserType=0;//0:其它版本，1:FIREFOX,CHROME,2:IE9及以上，3：IE8及以下
+		if(navigator.userAgent.indexOf("Firefox") != -1) 
+		{
+			console.log('Firefox');
+			browserType=1;
+		}
+		else if(navigator.userAgent.indexOf("Chrome") != -1) 
+		{
+			console.log('Chrome');
+			browserType=1;
+		}
+		else if(navigator.userAgent.indexOf("MSIE") != -1) 
+		{
+			if(navigator.appName == "Microsoft Internet Explorer" && navigator.appVersion.match(/9./i)=="9."){
+				browserType=2;
+				console.log("IE 9");
+			}
+			else if(navigator.appName == "Microsoft Internet Explorer" && navigator.appVersion.match(/10./i)=="10."){
+				console.log("IE 10");
+				browserType=2;
+			}
+			else if(navigator.appName == "Microsoft Internet Explorer" && navigator.appVersion.match(/11./i)=="11."){
+				console.log("IE 11");
+				browserType=2;
+			}
+			else
+			{
+				browserType=3;
+				console.log("IE 8及以下");
+			}
+		}
+		else if(navigator.userAgent.indexOf("Opera") != -1) 
+		{
+			alert('Opera');
+			browserType=0;
+		}
+		else if(navigator.userAgent.indexOf("Netscape") != -1) 
+		{
+			console.log('Netscape');
+			browserType=0;
+		}
+		else if(navigator.userAgent.indexOf("Safari") != -1) 
+		{
+			console.log('Safari');
+			browserType=0;
+		}
+		else
+		{
+			console.log('无法识别的浏览器。');
+			browserType=0;
+		} 
+		if (browserType==3)
+		{
+			alert("IE版本低于IE8，本功能可能运行不正常。建议使用FIREFOX.");
+		}
+
+	   	var listProv=new Array();//资源省ID与ARCGIS对照
+	   	listProv[3]={"resProvId":3,"arcgisId":10,"arcgisName":"安徽省"};
+	   	listProv[4]={"resProvId":4,"arcgisId":4,"arcgisName":"北京市"};
+	   	listProv[5]={"resProvId":5,"arcgisId":29,"arcgisName":"福建省"};
+	   	listProv[6]={"resProvId":6,"arcgisId":20,"arcgisName":"甘肃省"};
+	   	listProv[7]={"resProvId":7,"arcgisId":30,"arcgisName":"广东省"};
+	   	listProv[8]={"resProvId":8,"arcgisId":12,"arcgisName":"广西壮族自治区"};
+	   	listProv[9]={"resProvId":9,"arcgisId":22,"arcgisName":"贵州省"};
+	   	listProv[10]={"resProvId":10,"arcgisId":33,"arcgisName":"海南省"};
+	   	listProv[11]={"resProvId":11,"arcgisId":15,"arcgisName":"河北省"};
+	   	listProv[12]={"resProvId":12,"arcgisId":16,"arcgisName":"河南省"};
+	   	listProv[13]={"resProvId":13,"arcgisId":17,"arcgisName":"湖北省"};
+	   	listProv[14]={"resProvId":14,"arcgisId":18,"arcgisName":"湖南省"};
+	   	listProv[15]={"resProvId":15,"arcgisId":6,"arcgisName":"吉林省"};
+	   	listProv[16]={"resProvId":16,"arcgisId":35,"arcgisName":"江苏省"};
+	   	listProv[17]={"resProvId":17,"arcgisId":14,"arcgisName":"江西省"};
+	   	listProv[18]={"resProvId":18,"arcgisId":32,"arcgisName":"辽宁省"};
+	   	listProv[19]={"resProvId":19,"arcgisId":9,"arcgisName":"宁夏回族自治区"};
+	   	listProv[20]={"resProvId":20,"arcgisId":25,"arcgisName":"青海省"};
+	   	listProv[21]={"resProvId":21,"arcgisId":31,"arcgisName":"山东省"};
+	   	listProv[22]={"resProvId":22,"arcgisId":11,"arcgisName":"山西省"};
+	   	listProv[23]={"resProvId":23,"arcgisId":24,"arcgisName":"陕西省"};
+	   	listProv[24]={"resProvId":24,"arcgisId":1,"arcgisName":"上海市"};
+	   	listProv[25]={"resProvId":25,"arcgisId":7,"arcgisName":"四川省"};
+	   	listProv[26]={"resProvId":26,"arcgisId":8,"arcgisName":"天津市"};
+	   	listProv[27]={"resProvId":27,"arcgisId":21,"arcgisName":"西藏自治区"};
+	   	listProv[28]={"resProvId":28,"arcgisId":13,"arcgisName":"新疆维吾尔自治区"};
+	   	listProv[29]={"resProvId":29,"arcgisId":2,"arcgisName":"云南省"};
+	   	listProv[30]={"resProvId":30,"arcgisId":28,"arcgisName":"浙江省"};
+	   	listProv[31]={"resProvId":31,"arcgisId":23,"arcgisName":"重庆市"};
+	   	listProv[32]={"resProvId":32,"arcgisId":27,"arcgisName":"黑龙江省"};
+	   	listProv[33]={"resProvId":33,"arcgisId":3,"arcgisName":"内蒙古自治区"};
+	   	listProv[34]={"resProvId":34,"arcgisId":26,"arcgisName":"香港特别行政区"};
+	   	listProv[35]={"resProvId":35,"arcgisId":19,"arcgisName":"澳门特别行政区"};
+	   	listProv[36]={"resProvId":36,"arcgisId":5,"arcgisName":"台湾省"};
+
+		//界面接收鼠标点经纬度的组件ID,及接收模式.
+		var isGetPosOnMouseClick=false;//true:接收经纬度
+		var longtitudeElementId="";//经度接收组件ID
+		var latitudeElementId="";//纬度接收组件ID
+		
+		
+    </script>	
+    <script>
+    require(["esri/basemaps", "esri/layers/FeatureLayer", "esri/geometry/Circle", "esri/units", "esri/geometry/Extent", "esri/layers/ArcGISTiledMapServiceLayer", "esri/layers/GraphicsLayer",
+        "esri/layers/WebTiledLayer", "esri/map", "esri/toolbars/draw", "esri/symbols/TextSymbol", "esri/symbols/Font",
+        "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleFillSymbol", "esri/geometry/Polygon", "esri/geometry/Polyline",
+        "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol",
+        "esri/graphic", "esri/geometry/screenUtils", "esri/geometry/webMercatorUtils", "esri/symbols/PictureMarkerSymbol",
+        "dijit/Menu", "dijit/MenuItem", "dijit/MenuSeparator", "dijit/Tooltip",
+        "esri/geometry/geometryEngine",
+        "esri/Color", "dojo/dom", "dojo/on", "dojo/domReady!"
+    ], function(esriBasemaps, FeatureLayer, Circle, units, Extent, ArcGISTiledMapServiceLayer, GraphicsLayer,
+        WebTiledLayer, Map, Draw, TextSymbol, Font,
+        SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Polygon, Polyline,
+        PictureFillSymbol, CartographicLineSymbol,
+        Graphic, screenUtils, webMercatorUtils, PictureMarkerSymbol,
+        Menu, MenuItem, MenuSeparator, Tooltip,
+        geometryEngine,
+        Color, dom, on
+    ) {
+        //1.建立地图对象，并与div关联：     
+        esri.config.defaults.io.corsDetection = false;
+        map = new Map("mapDiv", { logo: false, slider: false, maxZoom: 18, minZoom: 3 });
+        map.centerAndZoom(new esri.geometry.Point(106, 28), 4);
+        var mapServiceLayer = new ArcGISTiledMapServiceLayer("http://42.99.20.136:50000/arcgis/rest/services/map/China_BaseMap/MapServer?ak=");
+        //map.hideZoomSlider();
+        map.addLayer(mapServiceLayer);
+
+
+        lbg = new GraphicsLayer({ "id": "backgroundLayer" });
+        map.addLayer(lbg);
+
+        //行政区域：http://42.99.16.96:53088/BaseMap/rest/services/China_Region/MapServer
+        districtLayer = new FeatureLayer("http://42.99.20.136:50000/arcgis/rest/services/gispub/China_Region/MapServer/0?ak=", { outFields: ["*"] });
+        var symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_NULL,
+            new SimpleLineSymbol(
+                SimpleLineSymbol.STYLE_SOLID,
+                new Color([227, 166, 77, 0.9]),
+                1
+            ),
+            new Color([125, 125, 125, 0.1])
+        );
+        districtLayer.setRenderer(new esri.renderer.SimpleRenderer(symbol));
+
+        map.addLayer(districtLayer);
+        districtLayer.hide();
+
+        districtLayerProv = new GraphicsLayer({ "id": "districtLayerProv" });
+        map.addLayer(districtLayerProv);
+
+        troubleLayer = new GraphicsLayer({ "id": "troubleLayer" });
+        map.addLayer(troubleLayer);
+
+        drawLayerNet1Txt = new GraphicsLayer({ "id": "drawLayerNet1Txt" });
+        map.addLayer(drawLayerNet1Txt);
+        drawLayerNet2Txt = new GraphicsLayer({ "id": "drawLayerNet2Txt" });
+        map.addLayer(drawLayerNet2Txt);
+        drawLayerNet3Txt = new GraphicsLayer({ "id": "drawLayerNet3Txt" });
+        map.addLayer(drawLayerNet3Txt);
+        drawLayerNet4Txt = new GraphicsLayer({ "id": "drawLayerNet4Txt" });
+        map.addLayer(drawLayerNet4Txt);
+
+        drawLayerNet1Line = new GraphicsLayer({ "id": "drawLayerNet1Line" });
+        drawLayerNet1Point = new GraphicsLayer({ "id": "drawLayerNet1Point" });
+        map.addLayer(drawLayerNet1Line);
+        map.addLayer(drawLayerNet1Point);
+
+        drawLayerNet2Line = new GraphicsLayer({ "id": "drawLayerNet2Line" });
+        drawLayerNet2Point = new GraphicsLayer({ "id": "drawLayerNet2Point" });
+        map.addLayer(drawLayerNet2Line);
+        map.addLayer(drawLayerNet2Point);
+
+        drawLayerNet3Line = new GraphicsLayer({ "id": "drawLayerNet3Line" });
+        drawLayerNet3Point = new GraphicsLayer({ "id": "drawLayerNet3Point" });
+        map.addLayer(drawLayerNet3Line);
+        map.addLayer(drawLayerNet3Point);
+
+        drawLayerNet4Line = new GraphicsLayer({ "id": "drawLayerNet4Line" });
+        drawLayerNet4Point = new GraphicsLayer({ "id": "drawLayerNet4Point" });
+        map.addLayer(drawLayerNet4Line);
+        map.addLayer(drawLayerNet4Point);
+
+        lt0 = new GraphicsLayer({ "id": "LayerTxt" });
+        map.addLayer(lt0);
+        lti = new GraphicsLayer({ "id": "LayerInfoPointTxt" });
+        map.addLayer(lti);
+
+        ll0 = new GraphicsLayer({ "id": "LayerLine" });
+        map.addLayer(ll0);
+        lp0 = new GraphicsLayer({ "id": "LayerPoint" });
+        map.addLayer(lp0);
+
+        lli = new GraphicsLayer({ "id": "LayerLineWithInfoPoint" });
+        map.addLayer(lli);
+        lpi = new GraphicsLayer({ "id": "LayerPointWithInfoPoint" });
+        map.addLayer(lpi);
+
+        lmn = new GraphicsLayer({ "id": "Layerlmn" });
+        map.addLayer(lmn);
+        lmu = new GraphicsLayer({ "id": "Layerlmu" });
+        map.addLayer(lmu);
+        lmt = new GraphicsLayer({ "id": "Layerlmt" });
+        map.addLayer(lmt);
+
+        lst = new GraphicsLayer({ "id": "Layerlst" }); //已选 点显示层
+        map.addLayer(lst);
+        lsp = new GraphicsLayer({ "id": "Layerlsp" }); //已选 点显示层
+        map.addLayer(lsp);
+
+
+        letop = new GraphicsLayer({ "id": "letop" });
+        map.addLayer(letop);
+        letmp = new GraphicsLayer({ "id": "letmp" });
+        map.addLayer(letmp);
+
+        map.on("zoom-end", changeLayer);
+        //map.on("load", initToolbar);
+        map.on("key-down", mapKeyDown);
+        map.on("mouse-down", mapMouseDown);
+        map.on("click", mapClick); //
+        map.on("dbl-click", mapDblClick);
+        map.on("mouse-move", mapMouseMove);
+        map.on("pan-end", changeLayer);
+        changeLayer();
+        setTopoResPointMouse(lpi);
+        setTopoResPointMouse(lp0);
+        setTopoResPointMouse(drawLayerNet3Point);
+        createGraphicsMenu();
+
+        setClickTxtName(drawLayerNet1Txt);
+        setClickTxtName(drawLayerNet2Txt);
+
+
+
+        function mapKeyDown(evt) {
+            //alert(evt.keyCode);
+            if (evt.keyCode == 120) {
+                if (dom.byId("mapshowtool").style.display == 'none') {
+                    dom.byId("mapshowtool").style.display = 'block';
+
+                } else {
+                    dom.byId("mapshowtool").style.display = 'none';
+                }
+            }
+        }
+
+        function mapClick(evt) {
+            //lbg.clear();
+            if (document.getElementById("PosLocatePanel").style.display == 'block') {
+                document.getElementById("es_stx1").value = evt.mapPoint.getLongitude();
+                document.getElementById("es_sty1").value = evt.mapPoint.getLatitude();
+                goPos(1, false);
+            }
+            if (isGetPosOnMouseClick == true) {
+                //longtitudeElementId//经度接收组件ID
+                //latitudeElementId//纬度接收组件ID
+                require(["esri/symbols/TextSymbol", "esri/symbols/Font", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleFillSymbol", "esri/geometry/Polyline", "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol", "esri/graphic", "esri/symbols/PictureMarkerSymbol", "esri/Color", "esri/geometry/Point", "esri/geometry/geometryEngine", "dojo/dom", "dojo/on", "dojo/domReady!"], function(TextSymbol, Font, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Polyline, PictureFillSymbol, CartographicLineSymbol, Graphic, PictureMarkerSymbol, Color, Point, geometryEngine, dom, on) {
+                    var longPos = document.getElementById(longtitudeElementId);
+                    if (longPos != null) {
+                        longPos.value = evt.mapPoint.getLongitude();
+                    }
+                    var latPos = document.getElementById(latitudeElementId);
+                    if (latPos != null) {
+                        latPos.value = evt.mapPoint.getLatitude();
+                    }
+                    var p0 = new Point(evt.mapPoint.getLongitude(), evt.mapPoint.getLatitude());
+
+                    var dms = new esri.symbol.PictureMarkerSymbol('/cable/img/locpos_red.png', 16, 16);
+                    letmp.clear();
+                    letmp.add(new esri.Graphic(p0, dms, {}));
+                });
+            }
+            if (mapCtrlState > 0) {
+                if (mapCtrlState == 1) {
+                    mapDmPosNum = 1;
+                    mapDmPos[0] = { x: evt.mapPoint.getLongitude(), y: evt.mapPoint.getLatitude() };
+                    mapCtrlState = 2;
+                    require(["esri/symbols/TextSymbol", "esri/symbols/Font", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleFillSymbol", "esri/geometry/Polyline", "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol", "esri/graphic", "esri/symbols/PictureMarkerSymbol", "esri/Color", "esri/geometry/Point", "esri/geometry/geometryEngine", "dojo/dom", "dojo/on", "dojo/domReady!"], function(TextSymbol, Font, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Polyline, PictureFillSymbol, CartographicLineSymbol, Graphic, PictureMarkerSymbol, Color, Point, geometryEngine, dom, on) {
+                        var p0 = new Point(mapDmPos[mapDmPosNum - 1].x, mapDmPos[mapDmPosNum - 1].y);
+
+                        var dms = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_CIRCLE, 6, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new esri.Color([255, 0, 0]), 2), new Color([255, 255, 0, 0.50]));
+                        letop.add(new esri.Graphic(p0, dms, {}));
+                        letop.add(new esri.Graphic(p0, new TextSymbol("起点").setOffset(15, 10).setColor(new Color([255, 0, 0])).setHaloColor(new Color([0, 255, 0])).setHaloSize(2), {}));
+                    });
+
+
+                } else if (mapCtrlState == 2) {
+                    mapDmPos[mapDmPosNum] = { x: evt.mapPoint.getLongitude(), y: evt.mapPoint.getLatitude() };
+
+                    require(["esri/symbols/TextSymbol", "esri/symbols/Font", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleFillSymbol", "esri/geometry/Polyline", "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol", "esri/graphic", "esri/symbols/PictureMarkerSymbol", "esri/Color", "esri/geometry/Point", "esri/geometry/geometryEngine", "dojo/dom", "dojo/on", "dojo/domReady!"], function(TextSymbol, Font, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Polyline, PictureFillSymbol, CartographicLineSymbol, Graphic, PictureMarkerSymbol, Color, Point, geometryEngine, dom, on) {
+                        var p0 = new Point(mapDmPos[mapDmPosNum - 1].x, mapDmPos[mapDmPosNum - 1].y);
+                        var p1 = new Point(mapDmPos[mapDmPosNum].x, mapDmPos[mapDmPosNum].y);
+                        var lsb = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SOLID, new esri.Color([255, 0, 0]), 2, esri.symbol.CartographicLineSymbol.CAP_ROUND, esri.symbol.CartographicLineSymbol.JOIN_ROUND, 5);
+                        var linedm = new Polyline();
+                        linedm.addPath([p0, p1]);
+                        letop.add(new Graphic(linedm, lsb, {}));
+
+                        var lengthDis = geometryEngine.geodesicLength(linedm, "meters");
+                        ////var lengthtxt2=geometryEngine.planarLength(linedm, "meters");
+                        //var lengthtxt1=Math.ceil(geometryEngine.distance(p0,p1,"meters")*10)/10;
+
+                        //alert("【"+lengthtxt+"】");
+                        mapDmSum += lengthDis;
+
+                        var lengthShow = Math.ceil(mapDmSum * 10) / 10;
+                        var lengthDisShow = Math.ceil(lengthDis * 10) / 10
+                        var lengthSumShow = Math.ceil(lengthShow * 10) / 10;
+
+                        letmp.add(new esri.Graphic(p1, new TextSymbol(lengthDisShow + "m/" + lengthSumShow + "m").setOffset(15, 10).setColor(new Color([255, 0, 0])).setHaloColor(new Color([0, 255, 0])).setHaloSize(2), {}));
+
+                        var dms = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_CIRCLE, 6, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([255, 0, 0]), 2), new Color([255, 255, 0, 0.50]));
+
+                        letop.add(new esri.Graphic(p1, dms, {}));
+                        letop.add(new esri.Graphic(p1, new TextSymbol(lengthDisShow + "m/" + lengthSumShow + "m").setOffset(15, 10).setColor(new Color([255, 0, 0])).setHaloColor(new Color([0, 255, 0])).setHaloSize(2), {}));
+                        mapDmPosNum++;
+                    });
+
+                }
+            }
+
+        }
+
+        function mapMouseMove(evt) {
+            if (mapCtrlState > 0) {
+                if (mapCtrlState == 2) {
+                    require(["esri/symbols/TextSymbol", "esri/symbols/Font", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleFillSymbol", "esri/geometry/Polyline", "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol", "esri/graphic", "esri/symbols/PictureMarkerSymbol", "esri/Color", "esri/geometry/Point", "esri/geometry/geometryEngine", "dojo/dom", "dojo/on", "dojo/domReady!"], function(TextSymbol, Font, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Polyline, PictureFillSymbol, CartographicLineSymbol, Graphic, PictureMarkerSymbol, Color, Point, geometryEngine, dom, on) {
+                        letmp.clear();
+                        var p0 = new Point(mapDmPos[mapDmPosNum - 1].x, mapDmPos[mapDmPosNum - 1].y);
+                        var p1 = new Point(evt.mapPoint.getLongitude(), evt.mapPoint.getLatitude());
+                        var lsb = new CartographicLineSymbol(CartographicLineSymbol.STYLE_DOT, new Color([255, 0, 0]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                        var linedm = new Polyline();
+                        linedm.addPath([p0, p1]);
+                        letmp.add(new Graphic(linedm, lsb, {}));
+
+                        var lengthDis = geometryEngine.geodesicLength(linedm, "meters");
+                        ////var lengthtxt2=geometryEngine.planarLength(linedm, "meters");
+                        //var lengthtxt1=Math.ceil(geometryEngine.distance(p0,p1,"meters")*10)/10;
+
+                        //alert("【"+lengthtxt+"】");
+                        var mapDmSumTmp = mapDmSum + lengthDis;
+                        var lengthDisShow = Math.ceil(lengthDis * 10) / 10
+                        var lengthSumShow = Math.ceil(mapDmSumTmp * 10) / 10;
+
+                        letmp.add(new esri.Graphic(p1, new TextSymbol(lengthDisShow + "m/" + lengthSumShow + "m").setOffset(15, 10).setColor(new Color([255, 0, 0])).setHaloColor(new Color([0, 255, 0])).setHaloSize(2), {}));
+
+                    });
+
+                }
+
+            }
+
+        }
+
+        function mapDblClick(evt) {
+            lbg.clear();
+            if (mapCtrlState > 0) {
+                if (mapCtrlState == 1) {
+                    mapDmPosNum = 0;
+                } else if (mapCtrlState == 2) {
+                    mapDmPosNum = 0;
+                }
+                mapCtrlState = 0;
+                map.enableDoubleClickZoom();
+                letmp.clear();
+                //map.disableDoubleClickZoom();
+            }
+
+        }
+
+        function mapMouseDown(evt) {
+            if (evt.graphic == null) {
+                closePopupOptDialog();
+            }
+            closeNewMarkLinePopTip();
+            //clearTop();
+        }
+
+        function initToolbar() {
+            on(dom.byId("wqmapshowtool"), "click", function(evt) {
+                if (evt.target.id === "wqmapshowtool") {
+                    return;
+                }
+
+                if (evt.target.id == "showNet") {
+                    showOrNotOptNet(evt.target);
+                    pmtMove = true;
+                    /**
+							wq修改
+		            	*/
+                    if ($("#showNet").hasClass('hover')) {
+                        $("#showNet").removeClass('hover');
+                    } else {
+                        $("#showNet").addClass('hover');
+                        var wqYiGanLi = $(".wqTuColor").find('li[data-name=wqYiGan]');
+                        var wqErGanLi = $(".wqTuColor").find('li[data-name=wqErGan]');
+                        var wgLocalLi = $(".wqTuColor").find('li[data-name=wgLocal]');
+                        var wqQianXinLi = $(".wqTuColor").find('li[data-name=wqQianXin]');
+                        wqYiGanLi.removeClass('show_hover');
+                        wqErGanLi.removeClass('show_hover');
+                        wgLocalLi.removeClass('show_hover');
+                        wqQianXinLi.removeClass('show_hover');
+                        wqTuColorReceive(wqTuColorState());
+                    }
+                    /**/
+                    return;
+                }
+
+                if (evt.target.id == "showchina") {
+                    showChina();
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "clearShowOpt") //清除图上所有光缆的显示
+                {
+                    clearOptAllShowed();
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "allOptCanSee") //使图上能同时看到所有已显示光缆
+                {
+                    makeAllShowedOptCanBeSee();
+                    pmtMove = true;
+                    return;
+                }
+
+                if (evt.target.id == "pointSave") //图上光缆点坐标的修改
+                {
+                    pointSave();
+                    pmtMove = true;
+                    return;
+                }
+            });
+            on(dom.byId("mapshowtool"), "click", function(evt) {
+                if (evt.target.id === "mapshowtool") {
+                    return;
+                }
+
+                if (evt.target.id == "showNet_s") {
+                    showOrNotOptNet(evt.target);
+                    pmtMove = true;
+                    return;
+                }
+
+                if (evt.target.id == "showchina") {
+                    showChina();
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "clearShowOpt") //清除图上所有光缆的显示
+                {
+                    clearOptAllShowed();
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "allOptCanSee") //使图上能同时看到所有已显示光缆
+                {
+                    makeAllShowedOptCanBeSee();
+                    pmtMove = true;
+                    return;
+                }
+
+                if (evt.target.id == "pointSave") //图上光缆点坐标的修改
+                {
+                    pointSave();
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "updateCoorXy") //校正库中点坐标：-1:全部,0-站点,1-城市,2-信息点
+                {
+                    var provResIdObj = document.getElementById("IntValueId");
+                    var updUrl = "/cable/jsp/trunkoptmap/check_coorxy.jsp?checkType=" + provResIdObj.value;
+                    //window.alert(openUrl);
+                    window.open(updUrl);
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "locatePos") //查找定位位置
+                {
+                    showHidePosLocatePanel(true);
+                    pmtMove = true;
+                    return;
+
+                }
+                if (evt.target.id == "distance") //测距
+                {
+                    startMeasureDistance();
+                    return;
+
+                }
+                if (evt.target.id == "cleardistance") //清除测距
+                {
+                    clearMeasureDistance();
+                    return;
+
+                }
+                if (evt.target.id == "mapattr") //地图属性
+                {
+                    var sMapAttr = "地图级别：[" + map.getLevel() + "]";
+                    sMapAttr += "Scale：[" + map.getScale() + "]";
+                    sMapAttr += "Zoom：[" + map.getZoom() + "]";
+                    sMapAttr += "MaxScale：[" + map.getMaxScale() + "]";
+                    sMapAttr += "MinScale：[" + map.getMinScale() + "]";
+                    sMapAttr += "MaxZoom：[" + map.getMaxZoom() + "]";
+                    sMapAttr += "MinZoom：[" + map.getMinZoom() + "]";
+                    window.alert(sMapAttr);
+                    return;
+
+                }
+                //测试用按钮：testbt1
+                if (evt.target.id == "testbt1") //测试1
+                {
+                    var dispTypes = iconDisplay();
+
+                    //startOptMonitor(24);
+                    //onOptShow(149246676909728,true,null,0,0,true);//145700368589093,327354724339999
+                    //onOptShow("145703365329146",true,null,3,0);
+                    //onRoutePlanShow("1",true,"149074835049679,149080316759527,350732451918350,346516009154508,247589094013543,149001080379592,229620311099961,229620315259963,149001029939584,149001013259582,149249479439488,156683310018062,149074915159722,149080454729814,149080426160811,149074882969708,149074874489698",null,0,10);
+
+                    //showOptByIds("145703365329146,149246676909728",null,0,true);
+
+                    //onOptShow("149000786059552",true,"[255,255,0]",0,0);
+                    //showNewOptTrouble(111,"测试故障",116.4329,39.9258,50000);
+                    //alert(map.getMaxZoom()-startShowInfoLevel);
+                    //alert("视图角坐标：【"+map.geographicExtent.xmin+"，"+map.geographicExtent.ymax+"】【"+map.geographicExtent.xmax+"，"+map.geographicExtent.ymin+"】");
+
+                    //loadOptTroubleById(1);
+                    //loadUserOptTrouble();
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "testbt2") //测试2
+                {
+                    showProvBorderById(4, "[255,0,255]", 2);
+                    //pointTypesModleHide();
+                    return;
+                    hitchLocate(149080320700529, 3070002, 500);
+                    var cc = getScreenCenterXy();
+                    showMsgDialog(cc.cx + "," + cc.cy);
+                    closeOptMonitor();
+                    return;
+                    //clearOptTrouble(1);
+                    //var provResIdObj=document.getElementById("IntValueId");
+                    //showProvBorderById(provResIdObj.value,"[255,0,255]",0);
+                    //onOptShow("145703365329146",true,"[0,255,0]",3,0);
+                    //onRoutePlanShow("3",true,"149074835049679,149080316759527,350732451918350,346516009154508,247589094013543,149001080379592,229620311099961,229620315259963,149001029939584,149001013259582,149249479439488,156683310018062,149074915159722,149080454729814,149080426160811,149074882969708,149074874489698",null,0,20);
+                    //onOptSegShow(327354724339999,327354931859067,null,0,5,true);
+                    //onRoutePlanShow("1",true,"327354931859067,327354954839069,327354998029093,327355045729096",null,0,0);
+                    //onRoutePlanSegShow("1","149074835049679,149080316759527,350732451918350,346516009154508,247589094013543,149001080379592,229620311099961,229620315259963,149001029939584,149001013259582,149249479439488,156683310018062,149074915159722,149080454729814,149080426160811,149074882969708,149074874489698","149074874489698",null,0,5);
+                    //onRoutePlanSegShow("1","149074835049679,149080316759527,350732451918350,346516009154508,247589094013543,149001080379592,229620311099961,229620315259963,149001029939584,149001013259582,149249479439488,156683310018062,149074915159722,149080454729814,149080426160811,149074882969708,149074874489698","149074882969708",null,0,5);
+
+                    var lsb0 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([0, 0, 0]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb1 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([0, 0, 128]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb2 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([0, 0, 255]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb3 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([100, 149, 237]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb4 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([30, 144, 255]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb5 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([0, 191, 255]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb6 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([0, 206, 209]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb7 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([0, 100, 0]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb8 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([50, 205, 50]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb9 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([205, 92, 92]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb10 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([139, 69, 19]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb11 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([178, 34, 34]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb12 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([255, 69, 0]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb13 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([255, 20, 147]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb14 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([255, 0, 255]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    var lsb15 = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SHORTDOT, new Color([138, 43, 226]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                    //return;
+
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 20],
+                        [120, 20]
+                    ]), lsb0, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 21],
+                        [120, 21]
+                    ]), lsb1, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 22],
+                        [120, 22]
+                    ]), lsb2, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 23],
+                        [120, 23]
+                    ]), lsb3, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 24],
+                        [120, 24]
+                    ]), lsb4, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 25],
+                        [120, 25]
+                    ]), lsb5, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 26],
+                        [120, 26]
+                    ]), lsb6, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 27],
+                        [120, 27]
+                    ]), lsb7, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 28],
+                        [120, 28]
+                    ]), lsb8, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 29],
+                        [120, 29]
+                    ]), lsb9, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 30],
+                        [120, 30]
+                    ]), lsb10, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 31],
+                        [120, 31]
+                    ]), lsb11, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 32],
+                        [120, 32]
+                    ]), lsb12, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 33],
+                        [120, 33]
+                    ]), lsb13, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 34],
+                        [120, 34]
+                    ]), lsb14, {}));
+                    letmp.add(new Graphic(new Polyline([
+                        [100, 35],
+                        [120, 35]
+                    ]), lsb15, {}));
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "testbt3") //测试3
+                {
+                    //onOptSegShow(327354724339999,327354931859067,null,0,0,false);
+                    //onRoutePlanShow("1",false,"327354931859067,327354954839069,327354998029093,327355045729096",null,0,0);
+                    //onRoutePlanOptShow("1","149074835049679,149080316759527,350732451918350,346516009154508,247589094013543,149001080379592,229620311099961,229620315259963,149001029939584,149001013259582,149249479439488,156683310018062,149074915159722,149080454729814,149080426160811,149074882969708,149074874489698","149080206459507",null,0,5);
+                    var p1 = new esri.geometry.Point(140, 40, new esri.SpatialReference({ wkid: 4326 }));
+                    var p2 = new esri.geometry.Point(141, 40, new esri.SpatialReference({ wkid: 4326 }));
+                    var p3 = new esri.geometry.Point(140, 41, new esri.SpatialReference({ wkid: 4326 }));
+                    var p4 = new esri.geometry.Point(140, 40, new esri.SpatialReference({ wkid: 4326 }));
+                    var lengthtxt = esri.geometry.getLength(p1, p2);
+                    //alert(lengthtxt);
+                    var geometry1 = new esri.geometry.Polyline();
+                    geometry1.addPath([p1, p2]);
+                    var geometry2 = new esri.geometry.Polyline();
+                    geometry2.addPath([p1, p2, p3, p4]); //var lengthtxt1="";//geometryEngine.distance(p1, p2, "kilometers");
+                    var lengthtxt1 = geometryEngine.geodesicLength(geometry1, "kilometers");
+                    var lengthtxt2 = geometryEngine.geodesicLength(geometry2, "kilometers");
+                    //var lengthtxt2="";//geometryEngine.planarLength(geometry, "meters");
+                    alert("[lengthtxt1]=" + lengthtxt1 + "[lengthtxt2]=" + lengthtxt2);
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "testbt4") //测试4
+                {
+                    //onOptShow(327354724339999,true,null,0,0,true);
+                    //onRoutePlanShow("2",true,"149074846449684,149074874489698,149249505899494,149249500819492,149249483099490,149249479439488,242393557848591,156683287919055,430125103351857,291826380939313,156944859019211,386428580144790,386428911159861,372405105680301,372770448569024 ,372842428350003,149267660849848,149267650649846,149267638350844,149267533109842,149249287379456,149249255279451,149249250699449,149249246519447,149249232239441,149249196580435,149249190759433,149249157719427,149249151619423,149249102819412,149249092580408,149249073099404,149249033399398,149249030079396,149248950879376,149248945019373,149248940899369,149248932639367, 149248894179356,149248886759354,149248872759346,149248863119338,149248687790303,149248678809295,149248623769285,306431339389005","[22,160,93]",0,3);
+                    //onRouteBusiShow("145544012829895",true,"145544875709004,145545580779014,145546421209054,145546525619060,296744244839934,389599689259006,390806650019218,390808518899220,145534440439009,145534449789011,145534462009013,145535848469249,145535851749251,145535860109253,149272255559986,149272213619982","[22,160,93]",0,3);
+                    //onRouteBusiShow("372164329436061",true,"341660047412691,171477836540283,149266978099560,149266984859562,149267004599564,149269703469509,149267025149567,440745950245067,149267068769584,149267075009586,159572155159906,159572173189914,149267091469636,159572589599224,159572595699229,149267290199724,159573263019566,159573271699572,149267296040726,149267365239776,159574198109536,388952466989853,329676134689719","[22,160,93]",30,0);
+
+                    closeProvBorder();
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "testbt5") //测试5
+                {
+                    //onOptShow(327354724339999,true,null,0,0,true);
+                    //onRoutePlanOptShow("2","149074846449684,149074874489698,149249505899494,149249500819492,149249483099490,149249479439488,242393557848591,156683287919055,430125103351857,291826380939313,156944859019211,386428580144790,386428911159861,372405105680301,372770448569024 ,372842428350003,149267660849848,149267650649846,149267638350844,149267533109842,149249287379456,149249255279451,149249250699449,149249246519447,149249232239441,149249196580435,149249190759433,149249157719427,149249151619423,149249102819412,149249092580408,149249073099404,149249033399398,149249030079396,149248950879376,149248945019373,149248940899369,149248932639367, 149248894179356,149248886759354,149248872759346,149248863119338,149248687790303,149248678809295,149248623769285,306431339389005","149074663449617","[249,38,114]",0,3);
+                    //onRouteBusiShow("372164329436061",false,"341660047412691,171477836540283,149266978099560,149266984859562,149267004599564,149269703469509,149267025149567,440745950245067,149267068769584,149267075009586,159572155159906,159572173189914,149267091469636,159572589599224,159572595699229,149267290199724,159573263019566,159573271699572,149267296040726,149267365239776,159574198109536,388952466989853,329676134689719","[22,160,93]",30,0);
+                    //onRoutePlanOptShow("2","149074835049679,149080316759527,350732451918350,346516009154508,247589094013543,149001080379592,229620311099961,229620315259963,149001029939584,149001013259582,149249483099490,149249500819492,149249505899494,149074874489698","149074663449617","[213, 58, 53]",0,0);
+                    onRoutePlanOptShow("5", "163700533204846,149080242879509,149074797629651,229537803260971,149074813569655,162639768879693,149080316759527,149074835049679,149074846449684,149074874489698,195233660529817,145705624209706,145705612949704,145705589760700,145701530610003,145701541491005,149249566059513,145701836489012,145701849630014,300393514719238,300393483209069,149249600819527,324583026399167,324569331670992,149249636589539,324568496389704,149249653040543,149249657459546,328790011380929,299149803599554,299149745139552,187352774330186,149250750789301,384606117861045,155235733349333,155235727129331,149361804519096,149361800359094,265472631920138", "149074663449617", "[213, 58, 53]", 0, 0);
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "testbt6") //测试6
+                {
+                    //onOptShow(327354724339999,true,null,0,0,true);
+                    //onRoutePlanSegShow("2","149074846449684,149074874489698,149249505899494,149249500819492,149249483099490,149249479439488,242393557848591,156683287919055,430125103351857,291826380939313,156944859019211,386428580144790,386428911159861,372405105680301,372770448569024 ,372842428350003,149267660849848,149267650649846,149267638350844,149267533109842,149249287379456,149249255279451,149249250699449,149249246519447,149249232239441,149249196580435,149249190759433,149249157719427,149249151619423,149249102819412,149249092580408,149249073099404,149249033399398,149249030079396,149248950879376,149248945019373,149248940899369,149248932639367, 149248894179356,149248886759354,149248872759346,149248863119338,149248687790303,149248678809295,149248623769285,306431339389005","149074846449684","[9,181,75]",0,3);
+                    //onRouteBusiSegShow("145544012829895","145544875709004,145545580779014,145546421209054,145546525619060,296744244839934,389599689259006,390806650019218,390808518899220,145534440439009,145534449789011,145534462009013,145535848469249,145535851749251,145535860109253,149272255559986,149272213619982","149272255559986","[249,38,114]",0,3);
+                    //onRouteBusiSegShow("372164329436061","341660047412691,171477836540283,149266978099560,149266984859562,149267004599564,149269703469509,149267025149567,440745950245067,149267068769584,149267075009586,159572155159906,159572173189914,149267091469636,159572589599224,159572595699229,149267290199724,159573263019566,159573271699572,149267296040726,149267365239776,159574198109536,388952466989853,329676134689719","341660047412691","[255,67,255]",10,0);
+                    onRoutePlanOptShow("5", "163700533204846,149080242879509,149074797629651,229537803260971,149074813569655,162639768879693,149080316759527,149074835049679,149074846449684,149074874489698,195233660529817,145705624209706,145705612949704,145705589760700,145701530610003,145701541491005,149249566059513,145701836489012,145701849630014,300393514719238,300393483209069,149249600819527,324583026399167,324569331670992,149249636589539,324568496389704,149249653040543,149249657459546,328790011380929,299149803599554,299149745139552,187352774330186,149250750789301,384606117861045,155235733349333,155235727129331,149361804519096,149361800359094,265472631920138", "149074663449617", "[0, 255, 255]", 0, 0);
+
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "testbt7") //测试7
+                {
+                    //onOptShow(327354724339999,true,null,0,0,true);
+                    //onRoutePlanSegShow("1",true,"149074835049679,149080316759527,350732451918350,346516009154508,247589094013543,149001080379592,229620311099961,229620315259963,149001029939584,149001013259582,149249479439488,156683310018062,149074915159722,149080454729814,149080426160811,149074882969708,149074874489698",null,0,10);
+                    startGetPosMousePos("IntValueId", "IntValueId1");
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "testbt8") //测试8
+                {
+                    //showProvBorder(true,"showNet_s");
+                    //showProvBorder(true);
+                    closeGetPosMousePos();
+                    var longtitudeValue = 100;
+                    var latitudeValue = 30;
+                    var longPos = document.getElementById(longtitudeElementId);
+                    if (longPos != null) {
+                        longtitudeValue = longPos.value;
+                    }
+                    var latPos = document.getElementById(latitudeElementId);
+                    if (latPos != null) {
+                        latitudeValue = latPos.value;
+                    }
+
+
+                    //queryOptByPos(longtitudeValue,latitudeValue,10);
+
+                    pmtMove = true;
+                    return;
+                }
+                if (evt.target.id == "testbt9") //测试9
+                {
+                    //onOptShow("149245236899537",true,"[255,255,0]",0,0);
+                    var longtitudeValue = 100;
+                    var latitudeValue = 30;
+                    var longPos = document.getElementById(longtitudeElementId);
+                    if (longPos != null) {
+                        longtitudeValue = longPos.value;
+                    }
+                    var latPos = document.getElementById(latitudeElementId);
+                    if (latPos != null) {
+                        latitudeValue = latPos.value;
+                    }
+                    var jsonObjStr = queryOptByPos(116.4329, 39.9258, 2700);
+                    pmtMove = true;
+                    return;
+                }
+
+            });
+
+
+        };
+
+        function createGraphicsMenu() {
+            // Creates right-click context menu for GRAPHICS
+            //alert(0);
+            /*
+	          	ctxMenuForGraphicsPoint = new Menu({});
+	          	ctxMenuForGraphicsLine = new Menu({});
+	          	//alert(1);
+	          	ctxMenuForGraphicsPoint.addChild(new MenuItem({ 
+	            	label: "此点信息...",
+	            	onClick: function(evt) 
+	            	{
+		            	var pointType=eventMenuGraphic.graphic.attributes.pointType;
+		            	var lineType=eventMenuGraphic.graphic.attributes.lineType;
+		            	if (pointType>0 && lineType<=0)
+		            	{
+							var showInfo="";
+							showInfo+="点类型:";
+							if (pointType==3)
+							{
+								showInfo+="省级汇聚点";
+							}
+							else if (pointType==5)
+							{
+								showInfo+="本地网城市级汇聚点";
+							}
+							else if (pointType==6)
+							{
+								showInfo+="站点";
+							}
+							else if (pointType==7)
+							{
+								showInfo+="信息点";
+							}
+							showInfo+="\r\n";
+							showInfo+="点名称:"+eventMenuGraphic.graphic.attributes.Name;
+							alert(showInfo);	            
+						}
+					}
+	          	}));
+	          	ctxMenuForGraphicsLine.addChild(new MenuItem({ 
+		            label: "此线信息...",
+		            onClick: function(evt) {
+		            	var pointType=eventMenuGraphic.graphic.attributes.pointType;
+		            	var lineType=eventMenuGraphic.graphic.attributes.lineType;
+		            	if (pointType<=0 && lineType>0)
+		            	{
+							var showInfo="";
+							showInfo+="线类型:";
+							if (lineType==1)//1:一级网线;2:二级网线;3:三级网线;4:光缆段;5:站点到外省
+							{
+								showInfo+="一级网线(省级点互联)";
+							}
+							else if (lineType==2)
+							{
+								lineType+="二级网线(城市间互联)";
+							}
+							else if (lineType==3)
+							{
+								showInfo+="三级网线(站点间互联)";
+							}
+							else if (lineType==4)
+							{
+								showInfo+="光缆段";
+							}
+							else if (lineType==5)
+							{
+								showInfo+="站点到外省(省内站点与外省级点互联)";
+							}
+							showInfo+="\r\n";
+							showInfo+="线名称:"+eventMenuGraphic.graphic.attributes.Name;
+							showInfo+="\r\n";
+							showInfo+="包含光缆(段):"+eventMenuGraphic.graphic.attributes.LineInfo;
+							alert(showInfo);	            
+						};
+		            }
+	          	}));
+	          
+	          
+	          	ctxMenuForGraphicsPoint.addChild(new MenuItem({ 
+	            	label: "列出途经此点光缆",
+	            	onClick: function() {
+	                	queryOptInfo(eventMenuGraphic);
+	            	} 
+	          	}));
+	
+	          	ctxMenuForGraphicsLine.addChild(new MenuItem({ 
+	            	label: "列出此线所含光缆",
+	            	onClick: function() {
+	              	queryOptInfo(eventMenuGraphic);
+	            	} 
+	          	}));
+	
+	          	ctxMenuForGraphicsPoint.addChild(new MenuItem({ 
+	            	label: "显示途经此点光缆路由",
+	            	onClick: function(evt) 
+	            	{
+	            		var optIds=eventMenuGraphic.graphic.attributes.OptIds;
+	            		if (optIds!=null && optIds!="")
+	            		{
+							showOptByIds(optIds);	            
+						}
+					}
+	          	}));
+	          	ctxMenuForGraphicsLine.addChild(new MenuItem({ 
+		            label: "显示此线所含光缆路由",
+		            onClick: function(evt) {
+		            	var optIds=eventMenuGraphic.graphic.attributes.OptIds;
+		            	if (optIds!=null && optIds!="")
+		            	{
+							showOptByIds(optIds);	            
+						}
+		            }
+	          	}));
+	          	*/
+            /*
+	          	ctxMenuForGraphicsPoint.addChild(new MenuItem({ 
+		            label: "修改此点经纬坐标...",
+		            onClick: function(evt) 
+		            {
+		            	setPointPos(eventMenuGraphic);
+					}
+	          	}));
+	          	*/
+            /*
+	          	ctxMenuForGraphicsLine.addChild(new MenuItem({ 
+		            label: "修改此线端点经纬坐标...",
+		            onClick: function(evt) {
+						setPointPos(eventMenuGraphic);
+		            }
+	          	}));
+	            */
+
+            //alert(2);
+
+            //////ctxMenuForGraphicsPoint.startup();
+            //////ctxMenuForGraphicsLine.startup();
+            //alert(3);
+
+            //生成光缆段、信息段上的上下文菜单
+            ctxMenuForOptLine = new Menu({});
+
+            ctxMenuForOptLine.addChild(new MenuItem({
+                label: "&nbsp;&nbsp;生成巡检单&nbsp;&nbsp;",
+                onClick: function(evt) {
+                    //新窗口打开巡检单生成页面，传入光缆ID/光缆段ID
+                    var sUrlToOpen = "/cable/jsp/system/segPoint/toAddRegularTask.action";
+                    if (eventMenuGraphic.graphic.attributes.b == 10007) {
+                        sUrlToOpen += "?optIdSelected=" + eventMenuGraphic.graphic.attributes.d;
+                        sUrlToOpen += "&optSegIdSelected=" + eventMenuGraphic.graphic.attributes.c;
+                        window.open(sUrlToOpen);
+                        closeDialog();
+                    } else if (eventMenuGraphic.graphic.attributes.b == 10002) {
+                        sUrlToOpen += "?optIdSelected=" + eventMenuGraphic.graphic.attributes.d;
+                        sUrlToOpen += "&optSegIdSelected=" + eventMenuGraphic.graphic.attributes.a;
+                        window.open(sUrlToOpen);
+                        closeDialog();
+                    }
+
+                }
+            }));
+
+
+            ctxMenuForOptLine.addChild(new MenuItem({
+                label: "&nbsp;&nbsp;生成检查单&nbsp;&nbsp;",
+                onClick: function(evt) {
+                    //新窗口打开检查单生成页面，传入光缆ID/光缆段ID
+                    var sUrlToOpen = "/cable/jsp/system/segPoint/toAddOptTask.action";
+                    if (eventMenuGraphic.graphic.attributes.b == 10007) {
+                        sUrlToOpen += "?optIdSelected=" + eventMenuGraphic.graphic.attributes.d;
+                        sUrlToOpen += "&optSegIdSelected=" + eventMenuGraphic.graphic.attributes.c;
+                        window.open(sUrlToOpen);
+                        closeDialog();
+                    } else if (eventMenuGraphic.graphic.attributes.b == 10002) {
+                        sUrlToOpen += "?optIdSelected=" + eventMenuGraphic.graphic.attributes.d;
+                        sUrlToOpen += "&optSegIdSelected=" + eventMenuGraphic.graphic.attributes.a;
+                        window.open(sUrlToOpen);
+                        closeDialog();
+                    }
+                }
+            }));
+
+            ctxMenuForOptLine.addChild(new MenuItem({
+                label: "&nbsp;&nbsp;纤芯权限调度&nbsp;&nbsp;",
+                onClick: function(evt) {
+                    //新窗口打开纤芯权限调度页面，传入光缆ID/光缆段ID
+                    var sUrlToOpen = "/cable/jsp/system/fiber/permission/query.action";
+                    if (eventMenuGraphic.graphic.attributes.b == 10007) {
+                        sUrlToOpen += "?optSegId=" + eventMenuGraphic.graphic.attributes.c;
+                        window.open(sUrlToOpen);
+                        closeDialog();
+                    } else if (eventMenuGraphic.graphic.attributes.b == 10002) {
+                        sUrlToOpen += "?optSegId=" + eventMenuGraphic.graphic.attributes.a;
+                        window.open(sUrlToOpen);
+                        closeDialog();
+                    }
+                }
+            }));
+            ctxMenuForOptLine.startup();
+
+            setLayerMouseInOutWithContextMenu(drawLayerNet1Line);
+            setLayerMouseInOutWithContextMenu(drawLayerNet1Point);
+            setLayerMouseInOutWithContextMenu(drawLayerNet2Line);
+            setLayerMouseInOutWithContextMenu(drawLayerNet2Point);
+            setLayerMouseInOutWithContextMenu(drawLayerNet3Line);
+            setLayerMouseInOutWithContextMenu(drawLayerNet3Point);
+
+
+            setLayerMouseInOutWithContextMenu(ll0);
+            setLayerMouseInOutWithContextMenu(lli);
+
+            setNetLayerMouseLineClick(drawLayerNet1Line);
+            setNetLayerMouseLineClick(drawLayerNet2Line);
+            setNetLayerMouseLineClick(drawLayerNet3Line);
+
+            setLayerMouseInOutNoContextMenu(ll0);
+            setLayerMouseInOutNoContextMenu(lp0);
+            //setLayerMouseInOutNoContextMenu(lli);
+            setLayerMouseInOutNoContextMenu(lpi);
+            setLayerMouseInOutNoContextMenu(troubleLayer);
+
+            setLayerMouseInOutNoContextMenu(lmn);
+            setLayerMouseInOutNoContextMenu(lmu);
+            setLayerMouseInOutNoContextMenu(lmt);
+
+            //setLayerMouseInOutNoContextMenu(drawLayerNet4Line);
+            setLayerMouseInOutNoContextMenu(drawLayerNet4Point);
+
+            setOptLayerMouseLineClick(ll0);
+            //setOptLayerMouseLineClick(lli);
+            setOptLayerMousePointClick(lpi);
+            setOptLayerMousePointClick(drawLayerNet4Point);
+
+            //setOptNetLayerMouseMarkSegLineClick(drawLayerNet4Line);
+            setNetMarkLineLayerMouseMarkSegLine(drawLayerNet4Line);
+            setNetMarkLineLayerMouseMarkSegLine(lli);
+
+        }
+
+        function setLayerMouseInOutWithContextMenu(layerObj) {
+            layerObj.on("mouse-over", function(evt) {
+                // We'll use this "Graphic" graphic to enable editing tools
+                // on this graphic when the user click on one of the tools
+                // listed in the menu.
+                showTooltipOptNet(evt);
+                eventMenuGraphic = evt;
+                selectedGraphic = evt.graphic;
+                if (selectedGraphic.attributes.b == 10007 ||
+                    selectedGraphic.attributes.b == 10002
+                ) {
+                    ctxMenuForOptLine.bindDomNode(evt.graphic.getDojoShape().getNode());
+                }
+                return;
+                //alert(selectedGraphic);
+                // Let's bind to the graphic underneath the mouse cursor           
+                if (selectedGraphic.geometry.type == "point" || selectedGraphic.geometry.type == "text") {
+                    ctxMenuForGraphicsPoint.bindDomNode(evt.graphic.getDojoShape().getNode());
+                } else if (selectedGraphic.geometry.type == "polyline") {
+                    ctxMenuForGraphicsLine.bindDomNode(evt.graphic.getDojoShape().getNode());
+                }
+            });
+            //alert(4);
+            layerObj.on("mouse-out", function(evt) {
+                closeDialog();
+                if (selectedGraphic.attributes.b == 10007 ||
+                    selectedGraphic.attributes.b == 10002
+                ) {
+                    ctxMenuForOptLine.unBindDomNode(evt.graphic.getDojoShape().getNode());
+                }
+                return;
+                if (selectedGraphic.geometry.type == "point" || selectedGraphic.geometry.type == "text") {
+                    ctxMenuForGraphicsPoint.unBindDomNode(evt.graphic.getDojoShape().getNode());
+                } else if (selectedGraphic.geometry.type == "polyline") {
+                    ctxMenuForGraphicsLine.unBindDomNode(evt.graphic.getDojoShape().getNode());
+                }
+            });
+
+        }
+
+        function setNetLayerMouseLineClick(layerObj) {
+            layerObj.on("mouse-down", function(evt) {
+                // We'll use this "Graphic" graphic to enable editing tools
+                // on this graphic when the user click on one of the tools
+                // listed in the menu.
+                showPopupOptNet(evt);
+                eventMenuGraphic = evt;
+                selectedGraphic = evt.graphic;
+                return;
+                //alert(selectedGraphic);
+                // Let's bind to the graphic underneath the mouse cursor           
+                if (selectedGraphic.geometry.type == "point" || selectedGraphic.geometry.type == "text") {
+                    ctxMenuForGraphicsPoint.bindDomNode(evt.graphic.getDojoShape().getNode());
+                } else if (selectedGraphic.geometry.type == "polyline") {
+                    ctxMenuForGraphicsLine.bindDomNode(evt.graphic.getDojoShape().getNode());
+                }
+            });
+
+
+        }
+
+        function setOptNetLayerMouseMarkSegLineClick(layerObj) {
+            layerObj.on("click", function(evt) {
+                // We'll use this "Graphic" graphic to enable editing tools
+                // on this graphic when the user click on one of the tools
+                // listed in the menu.
+                if (evt.button == 0) {
+                    showPopupOptMarkSeg(evt);
+                }
+                return;
+            });
+        }
+
+        function setNetMarkLineLayerMouseMarkSegLine(layerObj) {
+            layerObj.on("click", function(evt) {
+                // We'll use this "Graphic" graphic to enable editing tools
+                // on this graphic when the user click on one of the tools
+                // listed in the menu.
+                if (evt.button == 0) {
+                    onNewMarkLineClick(evt);
+                }
+                return;
+            });
+            layerObj.on("mouse-over", function(evt) {
+                // We'll use this "Graphic" graphic to enable editing tools
+                // on this graphic when the user click on one of the tools
+                // listed in the menu.
+                onNewMarkLineOverIn(evt);
+                eventMenuGraphic = evt;
+                selectedGraphic = evt.graphic;
+                //console.log("layerObj.on:mouse-over:"+evt.graphic);
+
+            });
+            //alert(4);
+            layerObj.on("mouse-out", function(evt) {
+                onNewMarkLineOverOut(evt);
+            });
+        }
+
+        function setOptLayerMouseLineClick(layerObj) {
+            layerObj.on("mouse-down", function(evt) {
+                // We'll use this "Graphic" graphic to enable editing tools
+                // on this graphic when the user click on one of the tools
+                // listed in the menu.
+                if (evt.graphic.attributes.b != 10004 && evt.graphic.attributes.b != 10002 && evt.graphic.attributes.b != 10006 && evt.graphic.attributes.b != 10001) {
+                    return;
+                }
+                console.log("layerObj.on:mouse-down:" + evt.graphic);
+                //showPopupOpt(evt);
+                eventMenuGraphic = evt;
+                selectedGraphic = evt.graphic;
+                return;
+                //alert(selectedGraphic);
+                // Let's bind to the graphic underneath the mouse cursor           
+                if (selectedGraphic.geometry.type == "point" || selectedGraphic.geometry.type == "text") {
+                    ctxMenuForGraphicsPoint.bindDomNode(evt.graphic.getDojoShape().getNode());
+                } else if (selectedGraphic.geometry.type == "polyline") {
+                    ctxMenuForGraphicsLine.bindDomNode(evt.graphic.getDojoShape().getNode());
+                }
+            });
+            layerObj.on("mouse-up", function(evt) {
+                // We'll use this "Graphic" graphic to enable editing tools
+                // on this graphic when the user click on one of the tools
+                // listed in the menu.
+                eventMenuGraphic = evt;
+                selectedGraphic = evt.graphic;
+                if (evt.button != 0) {
+                    closePopupOptDialog();
+                }
+                return;
+            });
+            layerObj.on("click", function(evt) {
+                // We'll use this "Graphic" graphic to enable editing tools
+                // on this graphic when the user click on one of the tools
+                // listed in the menu.
+                if (evt.button == 0) {
+                    showPopupOpt(evt);
+                }
+                return;
+            });
+        }
+
+        function setOptLayerMousePointClick(layerObj) {
+            layerObj.on("mouse-down", function(evt) {
+                // We'll use this "Graphic" graphic to enable editing tools
+                // on this graphic when the user click on one of the tools
+                // listed in the menu.
+                if (evt.graphic.attributes.b != 7 && evt.graphic.attributes.b != 20006) {
+                    return;
+                }
+                //console.log("layerObj.on:mouse-down:"+evt.graphic);
+                //showPopupOpt(evt);
+                eventMenuGraphic = evt;
+                selectedGraphic = evt.graphic;
+                return;
+                //alert(selectedGraphic);
+                // Let's bind to the graphic underneath the mouse cursor           
+                if (selectedGraphic.geometry.type == "point" || selectedGraphic.geometry.type == "text") {
+                    ctxMenuForGraphicsPoint.bindDomNode(evt.graphic.getDojoShape().getNode());
+                } else if (selectedGraphic.geometry.type == "polyline") {
+                    ctxMenuForGraphicsLine.bindDomNode(evt.graphic.getDojoShape().getNode());
+                }
+            });
+            layerObj.on("mouse-up", function(evt) {
+                // We'll use this "Graphic" graphic to enable editing tools
+                // on this graphic when the user click on one of the tools
+                // listed in the menu.
+                eventMenuGraphic = evt;
+                selectedGraphic = evt.graphic;
+                if (evt.button != 0) {
+                    closePopupOptDialog();
+                }
+                return;
+            });
+            layerObj.on("click", function(evt) {
+                // We'll use this "Graphic" graphic to enable editing tools
+                // on this graphic when the user click on one of the tools
+                // listed in the menu.
+                if (evt.button == 0) {
+                    showPopupPointInfo(evt);
+                }
+                return;
+            });
+        }
+
+        function setLayerMouseInOutNoContextMenu(layerObj) {
+            layerObj.on("mouse-over", function(evt) {
+                // We'll use this "Graphic" graphic to enable editing tools
+                // on this graphic when the user click on one of the tools
+                // listed in the menu.
+                showTooltip(evt);
+                eventMenuGraphic = evt;
+                selectedGraphic = evt.graphic;
+                //console.log("layerObj.on:mouse-over:"+evt.graphic);
+
+            });
+            //alert(4);
+            layerObj.on("mouse-out", function(evt) {
+                closeDialog(evt);
+            });
+
+        }
+        initToolbar();
+    });
+    </script>
+    <!--地图显示处理-->
+    <script>
+    function startMeasureDistance() {
+        mapCtrlState = 1; //0-无控制状态；1-测距开始；2-测距中；
+        mapDmPos = new Array(); //记录测距点阵列
+        mapDmPosNum = 0; //测距点数量
+        mapDmSum = 0;
+        pmtMove = true;
+        map.disableDoubleClickZoom();
+    }
+
+    function clearMeasureDistance() {
+        letmp.clear();
+        letop.clear();
+    }
+
+    function changeLayer() //图层切换处理
+    {
+        //console.log("getLevel()=["+map.getLevel()+"]"+"getScale()=["+map.getScale()+"]"+"getZoom()=["+map.getZoom()+"]"+"getMaxZoom()=["+map.getMaxZoom()+"]"+"getMaxScale()=["+map.getMaxScale()+"]");
+        if (map.getZoom() <= net1_2_level) {
+            curNetLevel = 1;
+        } else if (map.getZoom() > net1_2_level && map.getZoom() <= net2_3_level) {
+            curNetLevel = 2;
+        } else if (map.getZoom() > net2_3_level && map.getZoom() < startShowNetInfoLevel) {
+            curNetLevel = 3;
+        } else {
+            curNetLevel = 4;
+        }
+        if (showNet == true) {
+            //loadAndShowNetMap();
+            var showObj = getOptNetShowObj();
+            if (showObj.wqLocal != 0) {
+                if (curNetLevel == 4 && map.getZoom() != 18) {
+                    curNetLevel = 3;
+                }
+            }
+            if (curNetLevel == 1) {
+                loadAndShowNetMapByLevel(curNetLevel, showObj);
+                drawLayerNet1Line.show();
+                drawLayerNet1Point.show();
+                drawLayerNet1Txt.show();
+                drawLayerNet2Line.hide();
+                drawLayerNet2Point.hide();
+                drawLayerNet2Txt.hide();
+                drawLayerNet3Line.hide();
+                drawLayerNet3Point.hide();
+                drawLayerNet3Txt.hide();
+                drawLayerNet4Line.hide();
+                drawLayerNet4Point.hide();
+                drawLayerNet4Txt.hide();
+
+            } else if (curNetLevel == 2) {
+                loadAndShowNetMapByLevel(curNetLevel, showObj);
+                drawLayerNet1Line.hide();
+                drawLayerNet1Point.hide();
+                drawLayerNet1Txt.hide();
+                drawLayerNet2Line.show();
+                drawLayerNet2Point.show();
+                drawLayerNet2Txt.show();
+                drawLayerNet3Line.hide();
+                drawLayerNet3Point.hide();
+                drawLayerNet3Txt.hide();
+                drawLayerNet4Line.hide();
+                drawLayerNet4Point.hide();
+                drawLayerNet4Txt.hide();
+            } else if (curNetLevel == 3) {
+                loadAndShowNetMapByLevel(curNetLevel, showObj);
+                drawLayerNet1Line.hide();
+                drawLayerNet1Point.hide();
+                drawLayerNet1Txt.hide();
+                drawLayerNet2Line.hide();
+                drawLayerNet2Point.hide();
+                drawLayerNet2Txt.hide();
+                drawLayerNet3Line.show();
+                drawLayerNet3Point.show();
+                if (map.getZoom() <= showStNameLev) {
+                    drawLayerNet3Txt.hide();
+                } else {
+                    drawLayerNet3Txt.show();
+                }
+                drawLayerNet4Line.hide();
+                drawLayerNet4Point.hide();
+                drawLayerNet4Txt.hide();
+            } else //信息点显示层
+            {
+                loadNetInfoPointMapView(map.geographicExtent.xmin, map.geographicExtent.xmax, map.geographicExtent.ymin, map.geographicExtent.ymax, showObj.wqLocal);
+                drawLayerNet1Line.hide();
+                drawLayerNet1Point.hide();
+                drawLayerNet1Txt.hide();
+                drawLayerNet2Line.hide();
+                drawLayerNet2Point.hide();
+                drawLayerNet2Txt.hide();
+                drawLayerNet3Line.hide();
+                drawLayerNet3Point.hide();
+                drawLayerNet3Txt.hide();
+                drawLayerNet4Line.show();
+                drawLayerNet4Point.show();
+                drawLayerNet4Txt.show();
+            }
+            try { wqTuColorReceive(showObj); } catch (e) {};
+        } else {
+            drawLayerNet1Line.hide();
+            drawLayerNet1Point.hide();
+            drawLayerNet1Txt.hide();
+            drawLayerNet2Line.hide();
+            drawLayerNet2Point.hide();
+            drawLayerNet2Txt.hide();
+            drawLayerNet3Line.hide();
+            drawLayerNet3Point.hide();
+            drawLayerNet3Txt.hide();
+            drawLayerNet4Line.hide();
+            drawLayerNet4Point.hide();
+            drawLayerNet4Txt.hide();
+        }
+
+        if (map.getZoom() > startShowOptInfoLevel) {
+            ll0.hide();
+            lp0.hide();
+
+            lli.show();
+            lpi.show();
+            var showLevel = map.getZoom() - startShowOptInfoLevel;
+            if (showLevel >= (map.getMaxZoom() - startShowOptInfoLevel)) {
+                showLevel = 0;
+            }
+            showCachedCanSeeOptInView(map.geographicExtent.xmin, map.geographicExtent.xmax, map.geographicExtent.ymin, map.geographicExtent.ymax, showLevel);
+            if (map.getZoom() >= 17) {
+                showInfoPointLable = true;
+            } else {
+                showInfoPointLable = false;
+            }
+
+        } else {
+            ll0.show();
+            lp0.show();
+
+            lli.hide();
+            lpi.hide();
+            showInfoPointLable = false;
+            pointTypesModleHide(); //隐信息点面板
+        }
+
+        if (map.getZoom() <= showStNameLev) {
+            lt0.hide();
+        } else {
+            lt0.show();
+        }
+        if (showInfoPointLable) {
+            lti.show();
+        } else {
+            lti.hide();
+        }
+        if (isMonitor == true) {
+            if (map.getZoom() <= 2) {
+                lmn.hide();
+                lmu.hide();
+                lmt.hide();
+            } else if (map.getZoom() > 2 && map.getZoom() <= 5) {
+                lmn.show();
+                lmu.hide();
+                lmt.hide();
+                refreshWorkerNumInProvince();
+            } else if (map.getZoom() > 5 && map.getZoom() <= 10) {
+                lmn.hide();
+                lmu.show();
+                lmt.hide();
+                getWorkerPosInViewAndShow(map.geographicExtent.xmin, map.geographicExtent.xmax, map.geographicExtent.ymin, map.geographicExtent.ymax);
+            } else {
+                lmn.hide();
+                lmu.hide();
+                lmt.show();
+                getWorkerTraceInViewAndShow(map.geographicExtent.xmin, map.geographicExtent.xmax, map.geographicExtent.ymin, map.geographicExtent.ymax);
+            }
+        } else {
+            lmn.hide();
+            lmu.hide();
+            lmt.hide();
+        }
+        if (map.getZoom() <= 16) {
+            lst.hide();
+        } else {
+            lst.show();
+        }
+    }
+
+    function onShowCfgChanged(stateName, stateValue) {
+        //stateName对应取"wqYiGan","wqErGan","wqLocal","wqQianXin"
+        //stateValue对应-1,0,1
+        netDrawed1 = false;
+        netDrawed2 = false;
+        netDrawed3 = false;
+        changeLayer();
+    }
+
+    function getOptNetShowObj() {
+        var optLevel0 = 1;
+        var optLevel1 = 1;
+        var optLevel2 = 0;
+        var optLevel3 = 0;
+        var alertColorShow = 1;
+        //取得当前开关状态
+        var cfgObj = new Object({ "wqYiGan": 0, "wqErGan": 0, "wqLocal": 0, "wqQianXin": 0 });
+        try {
+            cfgObj = wqTuColorState();
+        } catch (e) {
+            cfgObj = new Object({ "wqYiGan": 0, "wqErGan": 0, "wqLocal": 0, "wqQianXin": 0 });
+        }
+        if (cfgObj == null || cfgObj == "") {
+            cfgObj = new Object({ "wqYiGan": 0, "wqErGan": 0, "wqLocal": 0, "wqQianXin": 0 });
+        }
+        //计算载入值
+        if (cfgObj.wqYiGan == 1) //开
+        {
+            optLevel1 = 1;
+            optLevel0 = 1;
+        } else if (cfgObj.wqYiGan == -1) //关
+        {
+            optLevel1 = 0;
+            optLevel0 = 0;
+        } else {
+            optLevel1 = 1;
+            optLevel0 = 1;
+        }
+        if (cfgObj.wqErGan == 1) //开
+        {
+            optLevel2 = 1;
+        } else if (cfgObj.wqErGan == -1) //关
+        {
+            optLevel2 = 0;
+        } else {
+            if (curNetLevel == 1) {
+                optLevel2 = 0;
+            } else {
+                optLevel2 = 1;
+            }
+
+        }
+        if (cfgObj.wqLocal == 1) //开
+        {
+            optLevel3 = 1;
+        } else if (cfgObj.wqLocal == -1) //关
+        {
+            optLevel3 = 0;
+        }
+        //else
+        //{
+        //	if (curNetLevel==1||curNetLevel==2)
+        //	{
+        //		optLevel3=0;
+        //	}
+        //	else
+        //	{
+        //		optLevel3=1;
+        //	}
+        //}
+        if (cfgObj.wqQianXin == 1) //开
+        {
+            alertColorShow = 1;
+        } else if (cfgObj.wqQianXin == -1) //关
+        {
+            alertColorShow = 0;
+        } else {
+            alertColorShow = 1;
+        }
+        var showObj = new Object({ "wqYiGan": optLevel1, "wqErGan": optLevel2, "wqLocal": optLevel3, "wqQianXin": alertColorShow });
+        return showObj;
+    }
+
+    function loadAndShowNetMapByLevel(netLevel, showObj) {
+        if ((netLevel == 1 && netDrawed1 != true) || (netLevel == 2 && netDrawed2 != true) || (netLevel == 3 && netDrawed3 != true)) {
+
+            var optLevel0 = showObj.wqYiGan;
+            var optLevel1 = showObj.wqYiGan;
+            var optLevel2 = showObj.wqErGan;
+            var optLevel3 = showObj.wqLocal;
+            var alertColorShow = showObj.wqQianXin;
+
+            xmlhttp.open("POST", "/cable/jsp/trunkoptmapyw/getOptNetMapYwByLevel.jsp", false);
+            xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            xmlhttp.send("netLevel=" + netLevel + "&optLevel0=" + optLevel0 + "&optLevel1=" + optLevel1 + "&optLevel2=" + optLevel2 + "&optLevel3=" + optLevel3 + "&alertColorShow=" + alertColorShow + "&OptNetProvId=" + OptNetProvId);
+            var retTxt = xmlhttp.responseText;
+            eval(retTxt);
+            if (netLevel == 1) {
+                netDrawed1 = true;
+            }
+            if (netLevel == 2) {
+                netDrawed2 = true;
+            }
+            if (netLevel == 3) {
+                netDrawed3 = true;
+            }
+        }
+
+    }
+    </script>
+    <!-- 地图工具条按钮处理 -->
+    <script>
+    //地图回到中国全视图
+    function showChina() {
+        map.centerAndZoom(new esri.geometry.Point(106, 28), 4);
+        //onOptShow(327354724339999,true,null,0,0,true);
+        //onOptSegShow(327354724339999,327354931859067,null,0,5,true);
+
+    }
+    //根据选项切换网络显示
+    function showOrNotOptNet(chkObj) {
+        if (chkObj.checked == true) {
+            showNet = true;
+            $(".wqTuColor").show();
+        } else {
+            showNet = false;
+            $(".wqTuColor").hide();
+        }
+        changeLayer();
+    }
+
+
+    //清除所有已显示图元的显示
+    function clearOptAllShowed() {
+        ll0.clear();
+        lp0.clear();
+        lli.clear();
+        lpi.clear();
+        lt0.clear();
+        lti.clear();
+        clearCachedOpt("");
+        clearMeasureDistance();
+        // 点击右下角工具清除光缆触发组与件WqSearch通信  wq添加
+        cabelHide();
+        isPointNeedToSave = false;
+    }
+    //使图上能同时看到所有已显示图元
+    function makeAllShowedOptCanBeSee() {
+        var minx = 180.0;
+        var miny = 90.0;
+        var maxx = -180.0;
+        var maxy = -90.0;
+
+        for (var i = lp0.graphics.length - 1; i >= 0; i--) {
+            if (lp0.graphics[i].geometry.type == "point") {
+                var point = lp0.graphics[i].geometry;
+                //alert("[point.getLongitude()="+point.getLongitude()+"][point.getLatitude()="+point.getLatitude()+"]");
+                if (minx > point.getLongitude()) {
+                    minx = point.getLongitude();
+                }
+                if (maxx < point.getLongitude()) {
+                    maxx = point.getLongitude();
+                }
+                if (miny > point.getLatitude()) {
+                    miny = point.getLatitude();
+                }
+                if (maxy < point.getLatitude()) {
+                    maxy = point.getLatitude();
+                }
+
+            }
+        }
+        var cx = (maxx + minx) / 2;
+        var cy = (maxy + miny) / 2;
+        var lenx = (maxx - minx) * 12000000 / 20;
+        var leny = (maxy - miny) * 12000000 / 10;
+        var scale = (lenx >= leny) ? lenx : leny;
+        if ((cx > 60.0) && (cy > 0.0)) {
+            map.setScale(scale);
+            map.centerAt(new esri.geometry.Point(cx, cy));
+        }
+    }
+
+    function showOptInMapCenterByOptId(optId) {
+        var minx = 180.0;
+        var miny = 90.0;
+        var maxx = -180.0;
+        var maxy = -90.0;
+
+        for (var i = lp0.graphics.length - 1; i >= 0; i--) {
+            if (lp0.graphics[i].geometry.type == "point" && (lp0.graphics[i].attributes.c == optId || lp0.graphics[i].attributes.d == optId)) {
+                var point = lp0.graphics[i].geometry;
+                //alert("[point.getLongitude()="+point.getLongitude()+"][point.getLatitude()="+point.getLatitude()+"]");
+                if (minx > point.getLongitude()) {
+                    minx = point.getLongitude();
+                }
+                if (maxx < point.getLongitude()) {
+                    maxx = point.getLongitude();
+                }
+                if (miny > point.getLatitude()) {
+                    miny = point.getLatitude();
+                }
+                if (maxy < point.getLatitude()) {
+                    maxy = point.getLatitude();
+                }
+
+            }
+        }
+        var cx = (maxx + minx) / 2;
+        var cy = (maxy + miny) / 2;
+        var lenx = (maxx - minx) * 12000000 / 20;
+        var leny = (maxy - miny) * 12000000 / 10;
+        var scale = (lenx >= leny) ? lenx : leny;
+        if ((cx > 60.0) && (cy > 0.0)) {
+            map.setScale(scale);
+            map.centerAt(new esri.geometry.Point(cx, cy));
+        }
+    }
+
+    function showOptSegInMapCenterByOptSegId(optId, optSegId) {
+        var minx = 180.0;
+        var miny = 90.0;
+        var maxx = -180.0;
+        var maxy = -90.0;
+
+        for (var i = lp0.graphics.length - 1; i >= 0; i--) {
+            if (lp0.graphics[i].geometry.type == "point" && (lp0.graphics[i].attributes.c == optSegId && lp0.graphics[i].attributes.d == optId)) {
+                var point = lp0.graphics[i].geometry;
+                //alert("[point.getLongitude()="+point.getLongitude()+"][point.getLatitude()="+point.getLatitude()+"]");
+                if (minx > point.getLongitude()) {
+                    minx = point.getLongitude();
+                }
+                if (maxx < point.getLongitude()) {
+                    maxx = point.getLongitude();
+                }
+                if (miny > point.getLatitude()) {
+                    miny = point.getLatitude();
+                }
+                if (maxy < point.getLatitude()) {
+                    maxy = point.getLatitude();
+                }
+
+            }
+        }
+        var cx = (maxx + minx) / 2;
+        var cy = (maxy + miny) / 2;
+        //var lenx=(maxx-minx)*12000000/20;
+        //var leny=(maxy-miny)*12000000/10;
+        //var scale=(lenx>=leny)?lenx:leny;
+        if ((cx > 60.0) && (cy > 0.0)) {
+            //map.setScale(scale);
+            map.centerAt(new esri.geometry.Point(cx, cy));
+        }
+
+    }
+
+    function showOptSegStAInMapCenterByOptSegId(optId, optSegId) {
+
+        var pAx = 0;
+        var pAy = 0;
+        for (var i = lp0.graphics.length - 1; i >= 0; i--) {
+            if (lp0.graphics[i].geometry.type == "point" && (lp0.graphics[i].attributes.c == optSegId && lp0.graphics[i].attributes.d == optId)) {
+
+                var point = lp0.graphics[i].geometry;
+                //alert("[point.getLongitude()="+point.getLongitude()+"][point.getLatitude()="+point.getLatitude()+"]");
+                pAx = point.getLongitude();
+                pAy = point.getLatitude();
+                break;
+
+            }
+        }
+        if (pAx != 0) {
+            //map.setScale(17);
+            //map.centerAt(new esri.geometry.Point(pAx,pAy));
+            map.centerAndZoom(new esri.geometry.Point(pAx, pAy), 17);
+        }
+
+    }
+    //点结果移动保存
+    function pointSave() {
+        var pointMovedNum = 0;
+        var strPointMoved = "";
+        for (var i = lpi.graphics.length - 1; i >= 0; i--) {
+            if (lpi.graphics[i].geometry.type == "point" && (lpi.graphics[i].attributes.i == 1)) {
+                var point = lpi.graphics[i].geometry;
+                if (pointMovedNum > 0) {
+                    strPointMoved += ";";
+                }
+                strPointMoved += "" + lpi.graphics[i].attributes.a + "," + lpi.graphics[i].attributes.b + "," + point.getLongitude() + "," + point.getLatitude();
+                //console.log("[point.getLongitude()="+point.getLongitude()+"][point.getLatitude()="+point.getLatitude()+"]");
+                pointMovedNum++;
+            }
+        }
+        for (var i = lp0.graphics.length - 1; i >= 0; i--) {
+            if (lp0.graphics[i].geometry.type == "point" && (lp0.graphics[i].attributes.i == 1)) {
+                var point = lp0.graphics[i].geometry;
+                if (pointMovedNum > 0) {
+                    strPointMoved += ";";
+                }
+                strPointMoved += "" + lp0.graphics[i].attributes.a + "," + lp0.graphics[i].attributes.b + "," + point.getLongitude() + "," + point.getLatitude();
+                //console.log("[point.getLongitude()="+point.getLongitude()+"][point.getLatitude()="+point.getLatitude()+"]");
+                pointMovedNum++;
+            }
+        }
+        for (var i = drawLayerNet3Point.graphics.length - 1; i >= 0; i--) {
+            if (drawLayerNet3Point.graphics[i].geometry.type == "point" && (drawLayerNet3Point.graphics[i].attributes.i == 1)) {
+                var point = drawLayerNet3Point.graphics[i].geometry;
+                if (pointMovedNum > 0) {
+                    strPointMoved += ";";
+                }
+                strPointMoved += "" + drawLayerNet3Point.graphics[i].attributes.a + "," + drawLayerNet3Point.graphics[i].attributes.b + "," + point.getLongitude() + "," + point.getLatitude();
+                //console.log("[point.getLongitude()="+point.getLongitude()+"][point.getLatitude()="+point.getLatitude()+"]");
+                pointMovedNum++;
+            }
+        }
+        if (pointMovedNum > 0 || isPointNeedToSave == true) {
+
+            xmlhttp.open("POST", "/cable/jsp/trunkoptmapyw/pointMovedYwSaveToDb.jsp", false);
+            xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            xmlhttp.send("strPointMoved=" + strPointMoved);
+            var retTxt = xmlhttp.responseText;
+            if (retTxt.search('数据保存完成') >= 0) {
+                for (var i = lpi.graphics.length - 1; i >= 0; i--) {
+                    lpi.graphics[i].attributes.i = '0';
+                }
+                for (var i = lp0.graphics.length - 1; i >= 0; i--) {
+                    lp0.graphics[i].attributes.i = '0';
+                }
+                isPointNeedToSave = false;
+            }
+            alert(retTxt);
+        } else {
+            alert("无任何点坐标变动.");
+        }
+    }
+    //关闭/显示全部省边界
+    function showProvBorder(showOrNot, checkObjId) {
+        if (checkObjId != null && checkObjId != "" && checkObjId != undefined) {
+            var chkObj = document.getElementById(checkObjId);
+            if (chkObj != null) {
+                if (chkObj.checked == true) {
+                    districtLayer.show();
+                } else {
+                    districtLayer.hide();
+                }
+            } else {
+                if (showOrNot == true) {
+                    districtLayer.show();
+                } else {
+                    districtLayer.hide();
+                }
+            }
+        } else {
+            if (showOrNot == true) {
+                districtLayer.show();
+            } else {
+                districtLayer.hide();
+            }
+        }
+    }
+
+    function showProvBorderById(resProvId, bordColor, bordWidth) {
+        if (resProvId < 3 || resProvId > 36) {
+            return;
+        }
+        if (bordColor != null && bordColor != "") {
+            var cObj = document.getElementById("provBordColor");
+            if (cObj != null) {
+                cObj.value = bordColor;
+            }
+        }
+
+        if (bordWidth > 0) {
+            var wObj = document.getElementById("provBordWidth");
+            if (wObj != null) {
+                wObj.value = bordWidth;
+            }
+
+        }
+
+        closeProvBorder(resProvId);
+        var queryTask = new esri.tasks.QueryTask("http://42.99.20.136:50000/arcgis/rest/services/gispub/China_Region/MapServer/0?ak=");
+        var queryObj = new esri.tasks.Query();
+        queryObj.returnGeometry = true;
+        queryObj.outFields = ["*"];
+        queryObj.text = listProv[resProvId].arcgisName;
+        queryTask.execute(queryObj, showProvBorderResults);
+
+    }
+
+    function showProvBorderResults(results) {
+        var provBorderColor = "[227,166,77]";
+        var provBorderWidth = 2;
+
+        var cObj = document.getElementById("provBordColor");
+        var wObj = document.getElementById("provBordWidth");
+        if (cObj != null) {
+            provBorderColor = cObj.value;
+        }
+        if (wObj != null) {
+            provBorderWidth = wObj.value;
+        }
+
+
+        var highlightSymbol = new esri.symbol.SimpleFillSymbol(
+            esri.symbol.SimpleFillSymbol.STYLE_NULL,
+            new esri.symbol.SimpleLineSymbol(
+                esri.symbol.SimpleLineSymbol.STYLE_SOLID,
+                new esri.Color(eval(provBorderColor)), parseInt(provBorderWidth)),
+            new esri.Color([125, 125, 125, 0.35])
+        );
+        var resultCount = results.features.length;
+        for (var i = 0; i < resultCount; i++) {
+
+            var g1 = new esri.Graphic(results.features[i].geometry, highlightSymbol, { "provArcgisId": results.features[i].attributes.OBJECTID });
+            districtLayerProv.add(g1);
+            //alert(results);
+        }
+    }
+
+    function closeProvBorder(resProvId) {
+        if (resProvId < 3 || resProvId > 36) {
+            return;
+        }
+        if (resProvId == null) {
+            districtLayerProv.clear();
+        } else {
+            for (var i = districtLayerProv.graphics.length - 1; i >= 0; i--) {
+                if (districtLayerProv.graphics[i].attributes.provArcgisId == listProv[resProvId].arcgisId) {
+                    districtLayerProv.remove(districtLayerProv.graphics[i]);
+                }
+            }
+
+        }
+    }
+
+    function showAllMainOpt() {
+        clearOptAllShowed();
+        xmlhttp.open("POST", "/cable/jsp/trunkoptmapyw/getAllMainOptYwNew.jsp", false);
+        xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        xmlhttp.send("optColor=&optWidth=0&withInfoPoint=0");
+
+        var retTxt = xmlhttp.responseText;
+        arcgisExceEval(retTxt);
+        changeLayer();
+    }
+
+    function arcgisExceEval(js) {
+        //if (js.substr(0,1)!="{")
+        //{
+        //	window.location.reload();
+        //}
+        require(["esri/symbols/TextSymbol", "esri/symbols/Font", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleFillSymbol", "esri/geometry/Polyline", "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol", "esri/graphic", "esri/symbols/PictureMarkerSymbol", "esri/Color", "esri/geometry/Point", "dojo/dom", "dojo/on", "dojo/domReady!"], function(TextSymbol, Font, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Polyline, PictureFillSymbol, CartographicLineSymbol, Graphic, PictureMarkerSymbol, Color, Point, dom, on) {
+            eval(js);
+        });
+
+    }
+    </script>
+    <!--TOOLTIP-->
+    <script>
+    var isMarkLineClicked = 0;
+
+    function onNewMarkLineOverIn(evt) {
+        if (isMarkLineClicked == 0) {
+            try {
+                if (evt.graphic.attributes.r != null) {
+                    cableSectionOpen(evt.graphic.attributes.r, evt.pageX, evt.pageY);
+                } else {
+                    showPopupOpt(evt);
+                }
+            } catch (gg) {}
+        }
+    }
+
+    function onNewMarkLineOverOut(evt) {
+        if (isMarkLineClicked == 0) {
+            try {
+                cableSectionClose();
+            } catch (gg) {}
+            try {
+                closePopupOptDialog();
+                closeDialog();
+            } catch (gg) {}
+        }
+    }
+
+    function onNewMarkLineClick(evt) {
+        isMarkLineClicked = 1;
+        try {
+            if (evt.graphic.attributes.r != null) {
+                cableSectionOpen(evt.graphic.attributes.r, evt.pageX, evt.pageY);
+            }
+        } catch (gg) {}
+    }
+
+    function closeNewMarkLinePopTip() {
+        isMarkLineClicked = 0;
+        try {
+            cableSectionClose();
+        } catch (gg) {}
+        try {
+            closePopupOptDialog();
+            closeDialog();
+        } catch (gg) {}
+
+    }
+
+    function OnNetLineMouseOver(obj) {
+        obj.style.color = 'deepskyblue';
+    }
+
+    function OnNetLineMouseOut(obj) {
+        obj.style.color = '';
+    }
+    //光缆网线上的弹出窗
+    function showPopupOptNet(evt) {
+        //alert(evt.graphic);
+        closePopupOptDialog();
+        closeDialog();
+        if (evt.graphic.attributes.LineInfo == "" || evt.graphic.attributes.LineInfo == null) {
+            return;
+        }
+        //background-color:#A0E7FF;
+        var tipContent = "<DIV>" +
+            "<b>" + formatStrForHtmlShow(evt.graphic.attributes.LineInfo) + "</b></DIV>";
+        //"+evt.graphic.attributes.OptIds+"  
+        var dialog = new dijit.TooltipDialog({
+            id: "popupOptDialog",
+            content: tipContent,
+            style: "position: absolute;  font: normal normal bold 10pt Tahoma;z-index:100;"
+        });
+        dialog.startup();
+
+        //dojo.style(dialog.domNode, "opacity", 0.85);
+        //dojo.style(dialog.domNode, "background-color", "#FF0000");
+        //dojo.style(dialog.containerNode, "border-width", "0");
+        //alert(dialog.getParent());
+        //dojo.style(dialog.containerNode, "padding", "1px");
+        //dojo.style(dialog.srcNodeRef, "background-color", "#FF0000");
+
+        dijit.placeOnScreen(dialog.domNode, { x: evt.pageX, y: evt.pageY }, ["TL", "BL"], { x: 25, y: -8 });
+
+    }
+
+    function formatStrForHtmlShow(inStr) {
+        var outStr = inStr.replace("&", "&amp;");
+        outStr = outStr.replace("\"", "&quot;");
+        //outStr=outStr.replace("<", "&lt;");
+        //outStr=outStr.replace(">", "&gt;");
+        outStr = outStr.replace(" ", "&nbsp;");
+        return outStr;
+    }
+
+    function showPopupOptMarkSeg(evt) {
+        //光网最大级时展示标识段及同沟的相关信息及认领信息
+        var urlOpen = "/cable/jsp/trunkoptmapyw/showOptMarkSegOrgUsers.jsp?markSegId=" + evt.graphic.attributes.a;
+        showInfoMsgPanel(true, urlOpen);
+
+    }
+
+    function showPopupOpt(evt) {
+        //alert(evt.graphic);
+        closePopupOptDialog();
+        closeDialog();
+        if (evt.graphic.attributes.e == "" || evt.graphic.attributes.e == null) {
+            return;
+        }
+        //background-color:#A0E7FF;
+        var tipInfo = formatStrForHtmlShow(evt.graphic.attributes.e);
+        if (evt.graphic.attributes.b == 10001 ||
+            evt.graphic.attributes.b == 10002 ||
+            evt.graphic.attributes.b == 10007
+            //||evt.graphic.attributes.b==10005
+        ) {
+            var thisOptId = 0;
+            if (evt.graphic.attributes.b == 10001) {
+                thisOptId = evt.graphic.attributes.a;
+            }
+            if (evt.graphic.attributes.b == 10002 ||
+                evt.graphic.attributes.b == 10007
+            ) {
+                thisOptId = evt.graphic.attributes.d;
+            }
+            if (evt.graphic.attributes.b == 10005) {
+                thisOptId = evt.graphic.attributes.c;
+            }
+
+            tipInfo = "<SPAN onclick='openQueryOptView(" + thisOptId + ");' style='cursor:pointer' onmouseover='OnNetLineMouseOver(this);' onmouseout='OnNetLineMouseOut(this);'>" + evt.graphic.attributes.e + "</SPAN>";
+        }
+
+        var tipContent = "<DIV>" +
+            "<b>" + tipInfo + "</b></DIV>";
+        //"+evt.graphic.attributes.OptIds+"  
+        var dialog = new dijit.TooltipDialog({
+            id: "popupOptDialog",
+            content: tipContent,
+            style: "position: absolute;  font: normal normal bold 10pt Tahoma;z-index:100;"
+        });
+        dialog.startup();
+
+        //dojo.style(dialog.domNode, "opacity", 0.85);
+        //dojo.style(dialog.domNode, "background-color", "#FF0000");
+        //dojo.style(dialog.containerNode, "border-width", "0");
+        //alert(dialog.getParent());
+        //dojo.style(dialog.containerNode, "padding", "1px");
+        //dojo.style(dialog.srcNodeRef, "background-color", "#FF0000");
+
+        dijit.placeOnScreen(dialog.domNode, { x: evt.pageX, y: evt.pageY }, ["TL", "BL"], { x: 25, y: -8 });
+
+    }
+
+    function closePopupOptDialog() {
+        var widget = dijit.byId("popupOptDialog");
+        if (widget) {
+            widget.destroy();
+        }
+    }
+
+    function openQueryOptView(inOptId) {
+        var openUrl = "/cable/jsp/system/opt/query.action?optId=" + inOptId;
+        //window.alert(openUrl);
+        window.open(openUrl, "optSegViewer");
+    }
+    //光缆网上的TIP显示
+    function showTooltipOptNet(evt) {
+        //alert(evt.graphic);
+        closeDialog();
+        if (evt.graphic.attributes.LineInfo == "" || evt.graphic.attributes.LineInfo == null) {
+            return;
+        }
+        //background-color:#A0E7FF;
+        var tipContent = "<DIV>" +
+            "<b>" + formatStrForHtmlShow(evt.graphic.attributes.LineInfo) + "</b></DIV>";
+        //"+evt.graphic.attributes.OptIds+"  
+        var dialog = new dijit.TooltipDialog({
+            id: "tooltipDialog",
+            content: tipContent,
+            style: "position: absolute;  font: normal normal bold 10pt Tahoma;z-index:100;"
+        });
+        dialog.startup();
+
+        //dojo.style(dialog.domNode, "opacity", 0.85);
+        //dojo.style(dialog.domNode, "background-color", "#FF0000");
+        //dojo.style(dialog.containerNode, "border-width", "0");
+        //alert(dialog.getParent());
+        //dojo.style(dialog.containerNode, "padding", "1px");
+        //dojo.style(dialog.srcNodeRef, "background-color", "#FF0000");
+
+        dijit.placeOnScreen(dialog.domNode, { x: evt.pageX, y: evt.pageY }, ["TL", "BL"], { x: 25, y: -8 });
+
+    }
+    //光缆上的TIP显示
+    function showTooltip(evt) {
+        //alert(evt.graphic);
+        closeDialog();
+        if (evt.graphic.attributes.e == "" || evt.graphic.attributes.e == null) {
+            return;
+        }
+        //background-color:#A0E7FF;
+        var tipContent = "<DIV>" +
+            "<b>" + formatStrForHtmlShow(evt.graphic.attributes.e) + "</b></DIV>";
+        //"+evt.graphic.attributes.OptIds+"  
+        var dialog = new dijit.TooltipDialog({
+            id: "tooltipDialog",
+            content: tipContent,
+            style: "position: absolute;  font: normal normal bold 10pt Tahoma;z-index:100;"
+        });
+        dialog.startup();
+
+        //dojo.style(dialog.domNode, "opacity", 0.85);
+        //dojo.style(dialog.domNode, "background-color", "#FF0000");
+        //dojo.style(dialog.containerNode, "border-width", "0");
+        //alert(dialog.getParent());
+        //dojo.style(dialog.containerNode, "padding", "1px");
+        //dojo.style(dialog.srcNodeRef, "background-color", "#FF0000");
+
+        dijit.placeOnScreen(dialog.domNode, { x: evt.pageX, y: evt.pageY }, ["TL", "BL"], { x: 25, y: -8 });
+
+        if (evt.graphic.geometry.type == "polyline" && evt.graphic.attributes.c != "" && evt.graphic.attributes.c != null) {
+            var thisOptId = evt.graphic.attributes.d;
+            var drawLineReal = ll0;
+            if (map.getZoom() > net2_3_level) {
+                return;
+                drawLineReal = lli;
+            }
+            for (var i = drawLineReal.graphics.length - 1; i >= 0; i--) {
+                if (drawLineReal.graphics[i].geometry.type == "polyline" && drawLineReal.graphics[i].attributes.d == thisOptId) {
+                    lastResGroupId = thisOptId;
+                    if (drawLineReal.graphics[i].attributes.mouseSize == "" || drawLineReal.graphics[i].attributes.mouseSize == null) {
+                        drawLineReal.graphics[i].attributes.mouseSize = drawLineReal.graphics[i].symbol.width;
+                        //console.log("drawLineReal.graphics[i].symbol.width="+drawLineReal.graphics[i].symbol.width);
+                    }
+
+                    //alert("2");
+                    var newColor = drawLineReal.graphics[i].symbol.color;
+                    var newLineSymbol = new esri.symbol.CartographicLineSymbol(drawLineReal.graphics[i].symbol.style, new esri.Color(newColor), parseInt(drawLineReal.graphics[i].attributes.mouseSize) + 5, esri.symbol.CartographicLineSymbol.CAP_ROUND, esri.symbol.CartographicLineSymbol.JOIN_ROUND, 5);
+
+
+                    drawLineReal.graphics[i].setSymbol(newLineSymbol);
+
+
+                    //if (drawLineReal.graphics[i]!=evt.graphic)
+                    if (browserType == 1) {
+                        //var nnn=drawLineReal.graphics[i];
+                        //drawLineReal.remove(drawLineReal.graphics[i]);
+                        //drawLineReal.add(nnn);
+                        try { drawLineReal.graphics[i].getShape().moveToFront(); } catch (e) {};
+
+                    }
+
+                    //alert("3");
+                }
+            }
+
+        }
+        //var event=evt?evt:window.event;
+        //event.stopPropagation();
+        //event.cancelBubble=true;
+    }
+
+    function closeDialog(evt) {
+        var widget = dijit.byId("tooltipDialog");
+        if (widget) {
+            widget.destroy();
+        }
+        //if (evt)
+        {
+            //console.log("closeDialog:lastResGroupId="+lastResGroupId);
+            if (lastResGroupId != null) {
+                var drawLineReal = ll0;
+                if (map.getZoom() > net2_3_level) {
+                    lastResGroupId = null;
+                    return;
+                    drawLineReal = lli;
+                }
+                for (var i = drawLineReal.graphics.length - 1; i >= 0; i--) {
+                    if (drawLineReal.graphics[i].geometry.type == "polyline" && drawLineReal.graphics[i].attributes.d == lastResGroupId) {
+                        var newColor = drawLineReal.graphics[i].symbol.color;
+                        var lineWidth = drawLineReal.graphics[i].attributes.mouseSize;
+                        if (drawLineReal.graphics[i].attributes.mouseSize == "" || drawLineReal.graphics[i].attributes.mouseSize == null) {
+                            lineWidth = drawLineReal.graphics[i].symbol.width;
+                        }
+
+                        var newLineSymbol = new esri.symbol.CartographicLineSymbol(drawLineReal.graphics[i].symbol.style, new esri.Color(newColor), parseInt(lineWidth), esri.symbol.CartographicLineSymbol.CAP_ROUND, esri.symbol.CartographicLineSymbol.JOIN_ROUND, 5);
+                        //console.log("drawLineReal.graphics[i].attributes.mouseSize="+drawLineReal.graphics[i].attributes.mouseSize);
+                        drawLineReal.graphics[i].setSymbol(newLineSymbol);
+                        drawLineReal.graphics[i].attributes.mouseSize = "";
+                        ///var nnn=drawLineReal.graphics[i];
+                        //drawLineReal.remove(drawLineReal.graphics[i]);
+                        //drawLineReal.add(nnn);
+                        if (browserType == 1) {
+                            try { drawLineReal.graphics[i].getShape().moveToFront(); } catch (e) {};
+                        }
+                    }
+
+                }
+                lastResGroupId = null;
+            }
+            //var event=evt?evt:window.event;
+            //event.stopPropagation();
+            //event.cancelBubble=true;
+
+        }
+    }
+    </script>
+    <!--左工具条-->
+    <script>
+    var pmtMove = true;
+    var isDowm = false;
+    var objX, objY, mouseX, mouseY;
+
+    function mouseDown(event, oDiv) {
+        if (pmtMove == false) {
+            return;
+        }
+        //var theEvent = window.event || arguments[0];
+        var theEvent = event;
+        var div = oDiv;
+
+        div.style.cursor = "move";
+        objX = div.style.left;
+        objY = div.style.top;
+
+        mouseX = theEvent.clientX;
+        mouseY = theEvent.clientY;
+
+        //document.getElementById("info").innerHTML = "objX:" + objX + "  " + "objY:" + objY+"  "+"mouseX:"+mouseX+"  mouseY:"+mouseY;  
+
+        isDowm = true;
+        //div.setCapture(true);  
+    }
+
+    function mouseMove(event, oDiv) {
+        //var theEvent = window.event || arguments[0];
+        if (pmtMove == false) {
+            return;
+        }
+        if (isDowm) {
+
+            var theEvent = event;
+
+            var div = oDiv;
+
+            var x = theEvent.clientX;
+            var y = theEvent.clientY;
+            var xx = parseInt(objX) + parseInt(x) - parseInt(mouseX) + "px";
+            var yy = parseInt(objY) + parseInt(y) - parseInt(mouseY) + "px";
+            div.style.left = xx;
+            div.style.top = yy;
+            //document.getElementById("info").innerHTML = "x:" + div.style .top + "  " + "y:" + div.style .left+"  "+"xx:"+xx+"  yy:"+yy;  
+        }
+    }
+
+    function mouseUp(event, oDiv) {
+        //var theEvent = window.event || arguments[0];
+        if (pmtMove == false) {
+            return;
+        }
+        var theEvent = event;
+        if (isDowm) {
+            var x = theEvent.clientX;
+            var y = theEvent.clientY;
+            var div = oDiv;
+
+
+            div.style.left = (parseInt(x) - parseInt(mouseX) + parseInt(objX)) + "px";
+            div.style.top = (parseInt(y) - parseInt(mouseY) + parseInt(objY)) + "px";
+            mouseX = x;
+            rewmouseY = y;
+            div.style.cursor = "default";
+            isDowm = false;
+            //div.setCapture(false);  
+        }
+    }
+    </script>
+    <!--右工具条-->
+    <script>
+    var isDownR = false;
+    var objXR, objYR, mouseXR, mouseYR;
+
+    function mouseDownR(event, oDiv) {
+        if (pmtMove == false) {
+            return;
+        } //var theEvent = window.event || arguments[0];
+        var theEvent = event;
+        var div = oDiv;
+
+        div.style.cursor = "move";
+        objXR = div.style.right;
+        objYR = div.style.top;
+
+        mouseXR = theEvent.clientX;
+        mouseYR = theEvent.clientY;
+
+        //document.getElementById("info").innerHTML = "objX:" + objX + "  " + "objY:" + objY+"  "+"mouseX:"+mouseX+"  mouseY:"+mouseY;  
+
+        isDownR = true;
+        //div.setCapture(true);  
+        //console.log("mouseDownR");
+    }
+
+    function mouseMoveR(event, oDiv) {
+        if (pmtMove == false) {
+            return;
+        } //var theEvent = window.event || arguments[0];
+        if (isDownR) {
+
+            var theEvent = event;
+
+            var div = oDiv;
+
+            var x = theEvent.clientX;
+            var y = theEvent.clientY;
+            var xx = parseInt(objXR) - (parseInt(x) - parseInt(mouseXR)) + "px";
+            var yy = parseInt(objYR) + parseInt(y) - parseInt(mouseYR) + "px";
+            div.style.right = xx;
+            div.style.top = yy;
+            //document.getElementById("info").innerHTML = "x:" + div.style .top + "  " + "y:" + div.style .left+"  "+"xx:"+xx+"  yy:"+yy;
+            //console.log("mouseMoveR");  
+        }
+    }
+
+    function mouseUpR(event, oDiv) {
+        if (pmtMove == false) {
+            return;
+        } //var theEvent = window.event || arguments[0];
+        var theEvent = event;
+        if (isDownR) {
+            var x = theEvent.clientX;
+            var y = theEvent.clientY;
+            var div = oDiv;
+            //div.setCapture(false);  
+
+            div.style.right = parseInt(objXR) - (parseInt(x) - parseInt(mouseXR)) + "px";
+            div.style.top = parseInt(objYR) + parseInt(y) - parseInt(mouseYR) + "px";
+
+            div.style.cursor = "default";
+            isDownR = false;
+            //showQuery(); 
+        }
+    }
+
+    document.oncontextmenu = function(e) { return false; };
+    </script>
+    <!--工具条移动协助-->
+    <script>
+    var mDiv = "";
+
+    function mouseDivStartMove(evt, oDiv) {
+        mDiv = oDiv;
+        if (oDiv.id == 'mapshowtool') {
+            mouseDownR(evt, oDiv);
+        } else {
+            mouseDown(evt, oDiv);
+        }
+        //console.log("mouseDivStartMove");
+    }
+    document.onmouseup = function() {
+        if (!mDiv) return;
+        var theEvent = window.event || arguments[0];
+        if (mDiv.id == 'mapshowtool') {
+            mouseUpR(theEvent, mDiv);
+        } else {
+            mouseUp(theEvent, mDiv);
+        }
+
+        mDiv = "";
+        //console.log("onmouseup");
+    };
+    document.onmousemove = function(d) {
+        if (!mDiv) return;
+        var theEvent = window.event || arguments[0];
+        if (mDiv.id == 'mapshowtool') {
+            mouseMoveR(theEvent, mDiv);
+            //console.log("mouseMoveR");
+        } else {
+            mouseMove(theEvent, mDiv);
+            //console.log("mouseMove");
+        }
+        //console.log("onmousemove");
+    };
+    </script>
+    <!--鼠标移动TOPO点-->
+    <script>
+    var dragPoint = null;
+    var dragPointTxt = null;
+
+    function setTopoResPointMouse(layerObj) {
+        layerObj.on("mouse-down", function(evt) {
+            dragPoint = evt.graphic;
+            map.disablePan();
+            dragPointTxt = null;
+            //drawLayerNet3Line,drawLayerNet3Point,drawLayerNet3Txt
+            if (dragPoint.attributes.b == 6) {
+                for (var i = 0; i < lt0.graphics.length; i++) {
+                    if (lt0.graphics[i].attributes.a == dragPoint.attributes.a && lt0.graphics[i].attributes.c == dragPoint.attributes.c && lt0.graphics[i].attributes.d == dragPoint.attributes.d) {
+                        dragPointTxt = lt0.graphics[i];
+                        break;
+                    }
+                }
+                if (dragPointTxt == null) {
+                    for (var i = 0; i < drawLayerNet3Txt.graphics.length; i++) {
+                        if (drawLayerNet3Txt.graphics[i].attributes.a == dragPoint.attributes.a) {
+                            dragPointTxt = drawLayerNet3Txt.graphics[i];
+                            break;
+                        }
+                    }
+
+                }
+            } else if (dragPoint.attributes.b == 7 || dragPoint.attributes.b == 10) {
+                for (var i = 0; i < lti.graphics.length; i++) {
+                    if (lti.graphics[i].attributes.a == dragPoint.attributes.a && lti.graphics[i].attributes.c == dragPoint.attributes.c && lti.graphics[i].attributes.d == dragPoint.attributes.d) {
+                        dragPointTxt = lti.graphics[i];
+                        break;
+                    }
+                }
+
+            }
+            closeDialog();
+            //console.log("mouse-down");
+        });
+        //layerObj.on("mouse-drag", function(evt)
+        //{
+        //	//鼠标点经纬度:evt.mapPoint.getLongitude()+","+evt.mapPoint.getLatitude()
+        //	if (dragPoint!=null)
+        //	{
+        //
+        //		var gm=dragPoint.geometry;
+        //		gm.setLongitude(evt.mapPoint.getLongitude());
+        //		gm.setLatitude(evt.mapPoint.getLatitude());
+        //		dragPoint.setGeometry(gm);
+
+        //		console.log("mouse-drag");
+        //	}				
+        //});
+        function updatePointLinePos() {
+            if (dragPoint != null) {
+                //当称动的点是站点时,修改相关线上的坐标
+                isPointNeedToSave = true;
+                closeDialog();
+                dragPoint.attributes.i = "1";
+                //console.log("updatePointLinePos:"+dragPoint);
+                if (dragPoint.attributes.b == 6 || dragPoint.attributes.b == 7) {
+                    for (var i = lli.graphics.length - 1; i >= 0; i--) {
+                        if (lli.graphics[i].attributes.k == dragPoint.attributes.a) {
+                            //lli.graphics[i].geometry.setPoint(0, 0, new esri.geometry.Point(dragPoint.geometry.getLongitude(),dragPoint.geometry.getLatitude()));
+                            //console.log("updatePointLinePos:"+dragPoint.geometry.getLongitude()+","+dragPoint.geometry.getLatitude());
+                            var p1 = new esri.geometry.Point(dragPoint.geometry.getLongitude(), dragPoint.geometry.getLatitude());
+                            var p2 = lli.graphics[i].geometry.getPoint(0, 1);
+                            var line0 = new esri.geometry.Polyline();
+                            line0.addPath([p1, p2]);
+                            lli.graphics[i].setGeometry(line0);
+                            lli.graphics[i].draw();
+                        }
+                        if (lli.graphics[i].attributes.l == dragPoint.attributes.a) {
+                            //var pointNum=lli.graphics[i].geometry.paths[0].length-1;
+                            //lli.graphics[i].geometry.setPoint(0, pointNum, new esri.geometry.Point(dragPoint.geometry.getLongitude(),dragPoint.geometry.getLatitude()));
+                            //console.log("updatePointLinePos:"+dragPoint.geometry.getLongitude()+","+dragPoint.geometry.getLatitude());
+                            //console.log("updatePointLinePos.STATION:"+pointNum);
+                            var p2 = new esri.geometry.Point(dragPoint.geometry.getLongitude(), dragPoint.geometry.getLatitude());
+                            var p1 = lli.graphics[i].geometry.getPoint(0, 0);
+                            var line0 = new esri.geometry.Polyline();
+                            line0.addPath([p1, p2]);
+                            lli.graphics[i].setGeometry(line0);
+                            lli.graphics[i].draw();
+                        }
+
+                    }
+                    for (var i = 0; i < lpi.graphics.length; i++) {
+                        if (lpi.graphics[i].attributes.a == dragPoint.attributes.a) {
+                            lpi.graphics[i].setGeometry(dragPoint.geometry);
+                            lpi.graphics[i].attributes.i = "1";
+                        }
+
+                    }
+                    for (var i = 0; i < lti.graphics.length; i++) {
+                        if (lti.graphics[i].attributes.a == dragPoint.attributes.a) {
+                            lti.graphics[i].setGeometry(dragPoint.geometry);;
+                        }
+                    }
+                    for (var i = ll0.graphics.length - 1; i >= 0; i--) {
+                        if (ll0.graphics[i].attributes.k == dragPoint.attributes.a) {
+                            //ll0.graphics[i].geometry.setPoint(0, 0, new esri.geometry.Point(dragPoint.geometry.getLongitude(),dragPoint.geometry.getLatitude()));
+                            //console.log("updatePointLinePos:"+dragPoint.geometry.getLongitude()+","+dragPoint.geometry.getLatitude());
+                            var p1 = new esri.geometry.Point(dragPoint.geometry.getLongitude(), dragPoint.geometry.getLatitude());
+                            var p2 = ll0.graphics[i].geometry.getPoint(0, 1);
+                            var line0 = new esri.geometry.Polyline();
+                            line0.addPath([p1, p2]);
+                            ll0.graphics[i].setGeometry(line0);
+                            ll0.graphics[i].draw();
+                        }
+                        if (ll0.graphics[i].attributes.l == dragPoint.attributes.a) {
+                            //var pointNum=ll0.graphics[i].geometry.paths[0].length-1;
+                            //ll0.graphics[i].geometry.setPoint(0, pointNum, new esri.geometry.Point(dragPoint.geometry.getLongitude(),dragPoint.geometry.getLatitude()));
+                            //console.log("updatePointLinePos:"+dragPoint.geometry.getLongitude()+","+dragPoint.geometry.getLatitude());
+                            //console.log("updatePointLinePos.STATION:"+pointNum);
+                            var p2 = new esri.geometry.Point(dragPoint.geometry.getLongitude(), dragPoint.geometry.getLatitude());
+                            var p1 = ll0.graphics[i].geometry.getPoint(0, 0);
+                            var line0 = new esri.geometry.Polyline();
+                            line0.addPath([p1, p2]);
+                            ll0.graphics[i].setGeometry(line0);
+                            ll0.graphics[i].draw();
+                        }
+
+                    }
+                    for (var i = 0; i < lp0.graphics.length; i++) {
+                        if (lp0.graphics[i].attributes.a == dragPoint.attributes.a) {
+                            lp0.graphics[i].setGeometry(dragPoint.geometry);
+                            lp0.graphics[i].attributes.i = "1";
+                        }
+
+                    }
+
+                    for (var i = 0; i < lt0.graphics.length; i++) {
+                        if (lt0.graphics[i].attributes.a == dragPoint.attributes.a) {
+                            lt0.graphics[i].setGeometry(dragPoint.geometry);;
+                        }
+                    }
+                    //drawLayerNet3Line,drawLayerNet3Point,drawLayerNet3Txt
+                    for (var i = drawLayerNet3Line.graphics.length - 1; i >= 0; i--) {
+                        if (drawLayerNet3Line.graphics[i].attributes.k == dragPoint.attributes.a) {
+                            drawLayerNet3Line.graphics[i].geometry.setPoint(0, 0, new esri.geometry.Point(dragPoint.geometry.getLongitude(), dragPoint.geometry.getLatitude()));
+                            //console.log("updatePointLinePos:"+dragPoint.geometry.getLongitude()+","+dragPoint.geometry.getLatitude());
+                            drawLayerNet3Line.graphics[i].draw();
+                        }
+                        if (drawLayerNet3Line.graphics[i].attributes.l == dragPoint.attributes.a) {
+                            var pointNum = drawLayerNet3Line.graphics[i].geometry.paths[0].length - 1;
+                            drawLayerNet3Line.graphics[i].geometry.setPoint(0, pointNum, new esri.geometry.Point(dragPoint.geometry.getLongitude(), dragPoint.geometry.getLatitude()));
+                            //console.log("updatePointLinePos:"+dragPoint.geometry.getLongitude()+","+dragPoint.geometry.getLatitude());
+                            //console.log("updatePointLinePos.STATION:"+pointNum);
+                            drawLayerNet3Line.graphics[i].draw();
+                        }
+
+                    }
+                    for (var i = 0; i < drawLayerNet3Point.graphics.length; i++) {
+                        if (drawLayerNet3Point.graphics[i].attributes.a == dragPoint.attributes.a) {
+                            drawLayerNet3Point.graphics[i].setGeometry(dragPoint.geometry);
+                            drawLayerNet3Point.graphics[i].attributes.i = "1";
+                        }
+
+                    }
+
+                    for (var i = 0; i < drawLayerNet3Txt.graphics.length; i++) {
+                        if (drawLayerNet3Txt.graphics[i].attributes.a == dragPoint.attributes.a) {
+                            drawLayerNet3Txt.graphics[i].setGeometry(dragPoint.geometry);;
+                        }
+                    }
+
+
+
+
+
+                } else if (dragPoint.attributes.b == 10) {
+                    //中间点的移动
+                    for (var i = 0; i < lli.graphics.length; i++) {
+
+                        if (lli.graphics[i].attributes.a == dragPoint.attributes.c) {
+                            var pointNum = dragPoint.attributes.j;
+                            lli.graphics[i].geometry.setPoint(0, pointNum, new esri.geometry.Point(dragPoint.geometry.getLongitude(), dragPoint.geometry.getLatitude()));
+                            //console.log("updatePointLinePos:"+dragPoint.geometry.getLongitude()+","+dragPoint.geometry.getLatitude());
+                            //console.log("updatePointLinePos.innerPoint:"+pointNum);
+                            lli.graphics[i].draw();
+                        }
+
+
+                    }
+                    for (var i = 0; i < lpi.graphics.length; i++) {
+                        if (lpi.graphics[i].attributes.a == dragPoint.attributes.a) {
+                            lpi.graphics[i].setGeometry(dragPoint.geometry);
+                        }
+
+                    }
+
+                    for (var i = 0; i < lti.graphics.length; i++) {
+                        if (lti.graphics[i].attributes.a == dragPoint.attributes.a) {
+                            lti.graphics[i].setGeometry(dragPoint.geometry);;
+                        }
+                    }
+                }
+            }
+
+        }
+        layerObj.on("mouse-up", function(evt) {
+            updatePointLinePos();
+            dragPoint = null;
+            dragPointTxt = null;
+            map.enablePan();
+            //console.log("mouse-up");
+        });
+        //map.on("mouse-up", function(evt)
+        //{
+        //	updatePointLinePos();
+        //	dragPoint=null;
+        //	dragPointTxt=null;
+        //	map.enablePan();
+        //	console.log("map.mouse-up");
+        //});
+        map.on("mouse-drag", function(evt) {
+            if (dragPoint != null) {
+                var gm = dragPoint.geometry;
+                gm.setLongitude(evt.mapPoint.getLongitude());
+                gm.setLatitude(evt.mapPoint.getLatitude());
+                dragPoint.setGeometry(gm);
+                closeDialog()
+            }
+            if (dragPointTxt != null) {
+                var gm = dragPointTxt.geometry;
+                gm.setLongitude(evt.mapPoint.getLongitude());
+                gm.setLatitude(evt.mapPoint.getLatitude());
+                dragPointTxt.setGeometry(gm);
+            }
+            //console.log("map.mouse-drag");
+        });
+
+        map.on("mouse-move", function(evt) {
+            if (dragPoint != null) {
+                var gm = dragPoint.geometry;
+                gm.setLongitude(evt.mapPoint.getLongitude());
+                gm.setLatitude(evt.mapPoint.getLatitude());
+                dragPoint.setGeometry(gm);
+                closeDialog()
+            }
+            if (dragPointTxt != null) {
+                var gm = dragPointTxt.geometry;
+                gm.setLongitude(evt.mapPoint.getLongitude());
+                gm.setLatitude(evt.mapPoint.getLatitude());
+                dragPointTxt.setGeometry(gm);
+            }
+            //console.log("map.mouse-move");
+        });
+    }
+    </script>
+</body>
+
+</html>
