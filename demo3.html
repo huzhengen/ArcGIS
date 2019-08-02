@@ -1,54 +1,1009 @@
+<!DOCTYPE html>
 <html>
 
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>ArcGIS JavaScript Tutorials: Create a Starter App</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
+    <title>demo3</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.22/esri/css/esri.css">
     <style>
-    html,
-    body,
-    #viewDiv {
-        padding: 0;
+    * {
         margin: 0;
-        height: 100%;
-        width: 100%;
+        padding: 0;
+    }
+
+    #mapDiv {
+        width: 100vw;
+        height: 100vh;
     }
     </style>
-    <link rel="stylesheet" href="https://js.arcgis.com/4.12/esri/css/main.css">
-    <script src="https://js.arcgis.com/4.12/"></script>
+    <script src="https://js.arcgis.com/3.22/"></script>
     <script>
-    require([
-        "esri/Map",
-        "esri/views/MapView",
-        //*** ADD ***//
-        "esri/widgets/BasemapToggle",
-        "esri/widgets/BasemapGallery"
-    ], function(Map, MapView, BasemapToggle, BasemapGallery) {
+    require(["esri/basemaps", "esri/layers/FeatureLayer", "esri/geometry/Circle", "esri/units", "esri/geometry/Extent", "esri/layers/ArcGISTiledMapServiceLayer", "esri/layers/GraphicsLayer",
+        "esri/layers/WebTiledLayer", "esri/map", "esri/toolbars/draw", "esri/symbols/TextSymbol", "esri/symbols/Font",
+        "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleFillSymbol", "esri/geometry/Polygon", "esri/geometry/Polyline",
+        "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol",
+        "esri/graphic", "esri/geometry/screenUtils", "esri/geometry/webMercatorUtils", "esri/symbols/PictureMarkerSymbol",
+        "dijit/Menu", "dijit/MenuItem", "dijit/MenuSeparator", "dijit/Tooltip",
+        "esri/geometry/geometryEngine",
+        "esri/Color", "dojo/dom", "dojo/on", "dojo/domReady!"
+    ], function(esriBasemaps, FeatureLayer, Circle, units, Extent, ArcGISTiledMapServiceLayer, GraphicsLayer,
+        WebTiledLayer, Map, Draw, TextSymbol, Font,
+        SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Polygon, Polyline,
+        PictureFillSymbol, CartographicLineSymbol,
+        Graphic, screenUtils, webMercatorUtils, PictureMarkerSymbol,
+        Menu, MenuItem, MenuSeparator, Tooltip,
+        geometryEngine,
+        Color, dom, on
+    ) {
+        //1.建立地图对象，并与div关联：
+        esri.config.defaults.io.corsDetection = false;
+        map = new Map("mapDiv", { logo: false, slider: false, maxZoom: 18, minZoom: 3 });
+        map.centerAndZoom(new esri.geometry.Point(106, 28), 4);
+        var mapServiceLayer = new ArcGISTiledMapServiceLayer("https://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer?ak=1");
+        //map.hideZoomSlider();
+        map.addLayer(mapServiceLayer);
 
-        var map = new Map({
-            basemap: "topo-vector"
+
+        lbg = new GraphicsLayer({ "id": "backgroundLayer" });
+        map.addLayer(lbg);
+
+        //行政区域：http://42.99.16.96:53088/BaseMap/rest/services/China_Region/MapServer
+        districtLayer = new FeatureLayer("http://42.99.16.96:53088/BaseMap/rest/services/China_Region/MapServer/0?ak=1", { outFields: ["*"] });
+        districtLayer = new FeatureLayer("https://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer?ak=1", { outFields: ["*"] });
+
+        var symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_NULL,
+            new SimpleLineSymbol(
+                SimpleLineSymbol.STYLE_SOLID,
+                new Color([227, 166, 77, 0.9]),
+                1
+            ),
+            new Color([125, 125, 125, 0.1])
+        );
+        districtLayer.setRenderer(new esri.renderer.SimpleRenderer(symbol));
+
+        map.addLayer(districtLayer);
+        console.log(districtLayer)
+        // districtLayer.hide();
+
+        districtLayerProv = new GraphicsLayer({ "id": "districtLayerProv" });
+        map.addLayer(districtLayerProv);
+
+        troubleLayer = new GraphicsLayer({ "id": "troubleLayer" });
+        map.addLayer(troubleLayer);
+
+        drawLayerNet1Txt = new GraphicsLayer({ "id": "drawLayerNet1Txt" });
+        map.addLayer(drawLayerNet1Txt);
+        drawLayerNet2Txt = new GraphicsLayer({ "id": "drawLayerNet2Txt" });
+        map.addLayer(drawLayerNet2Txt);
+        drawLayerNet3Txt = new GraphicsLayer({ "id": "drawLayerNet3Txt" });
+        map.addLayer(drawLayerNet3Txt);
+        drawLayerNet4Txt = new GraphicsLayer({ "id": "drawLayerNet4Txt" });
+        map.addLayer(drawLayerNet4Txt);
+
+        drawLayerNet1Line = new GraphicsLayer({ "id": "drawLayerNet1Line" });
+        drawLayerNet1Point = new GraphicsLayer({ "id": "drawLayerNet1Point" });
+        map.addLayer(drawLayerNet1Line);
+        map.addLayer(drawLayerNet1Point);
+
+        drawLayerNet2Line = new GraphicsLayer({ "id": "drawLayerNet2Line" });
+        drawLayerNet2Point = new GraphicsLayer({ "id": "drawLayerNet2Point" });
+        map.addLayer(drawLayerNet2Line);
+        map.addLayer(drawLayerNet2Point);
+
+        drawLayerNet3Line = new GraphicsLayer({ "id": "drawLayerNet3Line" });
+        drawLayerNet3Point = new GraphicsLayer({ "id": "drawLayerNet3Point" });
+        map.addLayer(drawLayerNet3Line);
+        map.addLayer(drawLayerNet3Point);
+
+        drawLayerNet4Line = new GraphicsLayer({ "id": "drawLayerNet4Line" });
+        drawLayerNet4Point = new GraphicsLayer({ "id": "drawLayerNet4Point" });
+        map.addLayer(drawLayerNet4Line);
+        map.addLayer(drawLayerNet4Point);
+
+        lt0 = new GraphicsLayer({ "id": "LayerTxt" });
+        map.addLayer(lt0);
+        lti = new GraphicsLayer({ "id": "LayerInfoPointTxt" });
+        map.addLayer(lti);
+
+        ll0 = new GraphicsLayer({ "id": "LayerLine" });
+        map.addLayer(ll0);
+        lp0 = new GraphicsLayer({ "id": "LayerPoint" });
+        map.addLayer(lp0);
+
+        lli = new GraphicsLayer({ "id": "LayerLineWithInfoPoint" });
+        map.addLayer(lli);
+        lpi = new GraphicsLayer({ "id": "LayerPointWithInfoPoint" });
+        map.addLayer(lpi);
+
+        lmn = new GraphicsLayer({ "id": "Layerlmn" });
+        map.addLayer(lmn);
+        lmu = new GraphicsLayer({ "id": "Layerlmu" });
+        map.addLayer(lmu);
+        lmt = new GraphicsLayer({ "id": "Layerlmt" });
+        map.addLayer(lmt);
+
+        lst = new GraphicsLayer({ "id": "Layerlst" }); //已选 点显示层
+        map.addLayer(lst);
+        lsp = new GraphicsLayer({ "id": "Layerlsp" }); //已选 点显示层
+        map.addLayer(lsp);
+
+
+        letop = new GraphicsLayer({ "id": "letop" });
+        map.addLayer(letop);
+        letmp = new GraphicsLayer({ "id": "letmp" });
+        map.addLayer(letmp);
+
+        map.on("zoom-end", changeLayer);
+        //map.on("load", initToolbar);
+        map.on("key-down", mapKeyDown);
+        map.on("mouse-down", mapMouseDown);
+        map.on("click", mapClick); //
+        map.on("dbl-click", mapDblClick);
+        map.on("mouse-move", mapMouseMove);
+        map.on("pan-end", changeLayer);
+        changeLayer();
+        setTopoResPointMouse(lpi);
+        setTopoResPointMouse(lp0);
+        setTopoResPointMouse(drawLayerNet3Point);
+        createGraphicsMenu();
+
+        setClickTxtName(drawLayerNet1Txt);
+        setClickTxtName(drawLayerNet2Txt);
+
+
+
+        function mapKeyDown(evt) {
+            //alert(evt.keyCode);
+            if (evt.keyCode == 120) {
+                if (dom.byId("mapshowtool").style.display == 'none') {
+                    dom.byId("mapshowtool").style.display = 'block';
+
+                } else {
+                    dom.byId("mapshowtool").style.display = 'none';
+                }
+            }
+        }
+
+        function mapClick(evt) {
+            //lbg.clear();
+            if (document.getElementById("PosLocatePanel").style.display == 'block') {
+                document.getElementById("es_stx1").value = evt.mapPoint.getLongitude();
+                document.getElementById("es_sty1").value = evt.mapPoint.getLatitude();
+                goPos(1, false);
+            }
+            if (isGetPosOnMouseClick == true) {
+                //longtitudeElementId//经度接收组件ID
+                //latitudeElementId//纬度接收组件ID
+                require(["esri/symbols/TextSymbol", "esri/symbols/Font", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleFillSymbol", "esri/geometry/Polyline", "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol", "esri/graphic", "esri/symbols/PictureMarkerSymbol", "esri/Color", "esri/geometry/Point", "esri/geometry/geometryEngine", "dojo/dom", "dojo/on", "dojo/domReady!"], function(TextSymbol, Font, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Polyline, PictureFillSymbol, CartographicLineSymbol, Graphic, PictureMarkerSymbol, Color, Point, geometryEngine, dom, on) {
+                    var longPos = document.getElementById(longtitudeElementId);
+                    if (longPos != null) {
+                        longPos.value = evt.mapPoint.getLongitude();
+                    }
+                    var latPos = document.getElementById(latitudeElementId);
+                    if (latPos != null) {
+                        latPos.value = evt.mapPoint.getLatitude();
+                    }
+                    var p0 = new Point(evt.mapPoint.getLongitude(), evt.mapPoint.getLatitude());
+
+                    var dms = new esri.symbol.PictureMarkerSymbol('/cable/img/locpos_red.png', 16, 16);
+                    letmp.clear();
+                    letmp.add(new esri.Graphic(p0, dms, {}));
+                });
+            }
+            if (mapCtrlState > 0) {
+                if (mapCtrlState == 1) {
+                    mapDmPosNum = 1;
+                    mapDmPos[0] = { x: evt.mapPoint.getLongitude(), y: evt.mapPoint.getLatitude() };
+                    mapCtrlState = 2;
+                    require(["esri/symbols/TextSymbol", "esri/symbols/Font", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleFillSymbol", "esri/geometry/Polyline", "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol", "esri/graphic", "esri/symbols/PictureMarkerSymbol", "esri/Color", "esri/geometry/Point", "esri/geometry/geometryEngine", "dojo/dom", "dojo/on", "dojo/domReady!"], function(TextSymbol, Font, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Polyline, PictureFillSymbol, CartographicLineSymbol, Graphic, PictureMarkerSymbol, Color, Point, geometryEngine, dom, on) {
+                        var p0 = new Point(mapDmPos[mapDmPosNum - 1].x, mapDmPos[mapDmPosNum - 1].y);
+
+                        var dms = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_CIRCLE, 6, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new esri.Color([255, 0, 0]), 2), new Color([255, 255, 0, 0.50]));
+                        letop.add(new esri.Graphic(p0, dms, {}));
+                        letop.add(new esri.Graphic(p0, new TextSymbol("起点").setOffset(15, 10).setColor(new Color([255, 0, 0])).setHaloColor(new Color([0, 255, 0])).setHaloSize(2), {}));
+                    });
+
+
+                } else if (mapCtrlState == 2) {
+                    mapDmPos[mapDmPosNum] = { x: evt.mapPoint.getLongitude(), y: evt.mapPoint.getLatitude() };
+
+                    require(["esri/symbols/TextSymbol", "esri/symbols/Font", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleFillSymbol", "esri/geometry/Polyline", "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol", "esri/graphic", "esri/symbols/PictureMarkerSymbol", "esri/Color", "esri/geometry/Point", "esri/geometry/geometryEngine", "dojo/dom", "dojo/on", "dojo/domReady!"], function(TextSymbol, Font, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Polyline, PictureFillSymbol, CartographicLineSymbol, Graphic, PictureMarkerSymbol, Color, Point, geometryEngine, dom, on) {
+                        var p0 = new Point(mapDmPos[mapDmPosNum - 1].x, mapDmPos[mapDmPosNum - 1].y);
+                        var p1 = new Point(mapDmPos[mapDmPosNum].x, mapDmPos[mapDmPosNum].y);
+                        var lsb = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SOLID, new esri.Color([255, 0, 0]), 2, esri.symbol.CartographicLineSymbol.CAP_ROUND, esri.symbol.CartographicLineSymbol.JOIN_ROUND, 5);
+                        var linedm = new Polyline();
+                        linedm.addPath([p0, p1]);
+                        letop.add(new Graphic(linedm, lsb, {}));
+
+                        var lengthDis = geometryEngine.geodesicLength(linedm, "meters");
+                        ////var lengthtxt2=geometryEngine.planarLength(linedm, "meters");
+                        //var lengthtxt1=Math.ceil(geometryEngine.distance(p0,p1,"meters")*10)/10;
+
+                        //alert("【"+lengthtxt+"】");
+                        mapDmSum += lengthDis;
+
+                        var lengthShow = Math.ceil(mapDmSum * 10) / 10;
+                        var lengthDisShow = Math.ceil(lengthDis * 10) / 10
+                        var lengthSumShow = Math.ceil(lengthShow * 10) / 10;
+
+                        letmp.add(new esri.Graphic(p1, new TextSymbol(lengthDisShow + "m/" + lengthSumShow + "m").setOffset(15, 10).setColor(new Color([255, 0, 0])).setHaloColor(new Color([0, 255, 0])).setHaloSize(2), {}));
+
+                        var dms = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_CIRCLE, 6, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([255, 0, 0]), 2), new Color([255, 255, 0, 0.50]));
+
+                        letop.add(new esri.Graphic(p1, dms, {}));
+                        letop.add(new esri.Graphic(p1, new TextSymbol(lengthDisShow + "m/" + lengthSumShow + "m").setOffset(15, 10).setColor(new Color([255, 0, 0])).setHaloColor(new Color([0, 255, 0])).setHaloSize(2), {}));
+                        mapDmPosNum++;
+                    });
+
+                }
+            }
+
+        }
+
+        function mapMouseMove(evt) {
+            if (mapCtrlState > 0) {
+                if (mapCtrlState == 2) {
+                    require(["esri/symbols/TextSymbol", "esri/symbols/Font", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleFillSymbol", "esri/geometry/Polyline", "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol", "esri/graphic", "esri/symbols/PictureMarkerSymbol", "esri/Color", "esri/geometry/Point", "esri/geometry/geometryEngine", "dojo/dom", "dojo/on", "dojo/domReady!"], function(TextSymbol, Font, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Polyline, PictureFillSymbol, CartographicLineSymbol, Graphic, PictureMarkerSymbol, Color, Point, geometryEngine, dom, on) {
+                        letmp.clear();
+                        var p0 = new Point(mapDmPos[mapDmPosNum - 1].x, mapDmPos[mapDmPosNum - 1].y);
+                        var p1 = new Point(evt.mapPoint.getLongitude(), evt.mapPoint.getLatitude());
+                        var lsb = new CartographicLineSymbol(CartographicLineSymbol.STYLE_DOT, new Color([255, 0, 0]), 2, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);
+                        var linedm = new Polyline();
+                        linedm.addPath([p0, p1]);
+                        letmp.add(new Graphic(linedm, lsb, {}));
+
+                        var lengthDis = geometryEngine.geodesicLength(linedm, "meters");
+                        ////var lengthtxt2=geometryEngine.planarLength(linedm, "meters");
+                        //var lengthtxt1=Math.ceil(geometryEngine.distance(p0,p1,"meters")*10)/10;
+
+                        //alert("【"+lengthtxt+"】");
+                        var mapDmSumTmp = mapDmSum + lengthDis;
+                        var lengthDisShow = Math.ceil(lengthDis * 10) / 10
+                        var lengthSumShow = Math.ceil(mapDmSumTmp * 10) / 10;
+
+                        letmp.add(new esri.Graphic(p1, new TextSymbol(lengthDisShow + "m/" + lengthSumShow + "m").setOffset(15, 10).setColor(new Color([255, 0, 0])).setHaloColor(new Color([0, 255, 0])).setHaloSize(2), {}));
+
+                    });
+
+                }
+
+            }
+
+        }
+
+        function mapDblClick(evt) {
+            lbg.clear();
+            if (mapCtrlState > 0) {
+                if (mapCtrlState == 1) {
+                    mapDmPosNum = 0;
+                } else if (mapCtrlState == 2) {
+                    mapDmPosNum = 0;
+                }
+                mapCtrlState = 0;
+                map.enableDoubleClickZoom();
+                letmp.clear();
+                //map.disableDoubleClickZoom();
+            }
+
+        }
+
+        function mapMouseDown(evt) {
+            if (evt.graphic == null) {
+                closePopupOptDialog();
+            }
+            closeNewMarkLinePopTip();
+            //clearTop();
+        }
+
+
+
+    })
+
+
+    //按光缆ID显示光缆
+    function onOptShow(optId, isShowOrNot, optColor, optWidth, lineAddWidth, isShowInfoPoint, isMoveMap, isNoRedrawLine) {
+        //optId:光缆ID；isShowOrNot：true:显示，false:关闭显示;optColor:光缆显示颜色,可空,格式：[r,g,b]；OptWidth:光缆显示宽度，可空
+        //lineAddWidth:额外加宽宽度。
+        //isShowInfoPoint:true/false是否显示信息点;isNoRedrawLine:true-不重新绘制线,其它-重绘
+
+        if (optId != null && optId != "") {
+            if (isShowOrNot == false) //要求关闭显示
+            {
+                clearOptShow(optId);
+            } else {
+                //先检测是否已显示
+                var isOptShowed = false;
+                for (var i = ll0.graphics.length - 1; i >= 0; i--) {
+                    if (ll0.graphics[i].geometry.type == "polyline" && ll0.graphics[i].attributes.d == optId) {
+                        isOptShowed = true;
+                        break;
+                    }
+                }
+                if (isOptShowed == false) //光缆查询不再调用台后线程取光缆全量数据，改为由刷新时取要显示的段。20180517
+                {
+                    var t0 = new Date();
+                    xmlhttp.open("POST", "/cable/jsp/trunkoptmapyw/getOptShowDataYwByIdNew.jsp", false);
+                    xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+                    var loadParams = "optId=" + optId + "&optColor=" + optColor + "&optWidth=" + optWidth;
+                    xmlhttp.send(loadParams + "&withInfoPoint=0");
+                    var t1 = new Date();
+                    console.log("t1-t0=" + (t1.getTime() - t0.getTime()));
+
+                    var retTxt = xmlhttp.responseText;
+                    arcgisExceEval(retTxt);
+                    if (false) {
+                        var worker = new Worker('backgetoptInfopointdata.js');
+                        worker.onmessage = function(event) {
+                            changeLayer();
+                            console.log("worker:" + event.data);
+                        };
+                        worker.postMessage({ "optIds": optId, "optWidth": optWidth, "optColor": optColor });
+                        console.log("worker created.");
+                    }
+
+                    var t2 = new Date();
+                    console.log("t2-t1=" + (t2.getTime() - t1.getTime()));
+                    console.log("t2-t0=" + (t2.getTime() - t0.getTime()));
+                    changeLayer();
+                    //window.setTimeout("loadOptDetailDelay('"+loadParams+"')",1000);
+                }
+                //已显示时，进行加宽/复原处理
+
+                if (isNoRedrawLine != true) {
+                    var drawLineReal = ll0;
+                    for (var i = drawLineReal.graphics.length - 1; i >= 0; i--) {
+                        if (drawLineReal.graphics[i].geometry.type == "polyline" && drawLineReal.graphics[i].attributes.d == optId) {
+                            var lineSymbol = drawLineReal.graphics[i].symbol;
+                            if (optWidth != null && optWidth > 0) {
+                                if (lineAddWidth != null && lineAddWidth > 0) {
+                                    if (parseInt(optWidth) + parseInt(lineAddWidth) != lineSymbol.width) {
+                                        lineSymbol.setWidth(parseInt(optWidth) + parseInt(lineAddWidth));
+                                    }
+                                } else {
+                                    if (parseInt(optWidth) != lineSymbol.width) {
+                                        lineSymbol.setWidth(parseInt(optWidth) + parseInt(lineAddWidth));
+                                    }
+
+                                }
+                            } else {
+                                if (lineAddWidth != null && lineAddWidth > 0) {
+                                    if (parseInt(lineAddWidth) > 0) {
+                                        lineSymbol.setWidth(parseInt(drawLineReal.graphics[i].attributes.f) + parseInt(lineAddWidth));
+                                    } else {
+                                        lineSymbol.setWidth(parseInt(drawLineReal.graphics[i].attributes.f));
+                                    }
+                                } else {
+                                    lineSymbol.setWidth(parseInt(drawLineReal.graphics[i].attributes.f));
+                                }
+                            }
+                            if (optColor != null && optColor != "") {
+                                lineSymbol.setColor(new esri.Color(eval(optColor)));
+                            } else {
+                                lineSymbol.setColor(new esri.Color(eval(drawLineReal.graphics[i].attributes.h)));
+                            }
+                            //console.log("onOptShow:lineSymbol.width="+lineSymbol.width);
+                            //console.log("onOptShow:lineSymbol.h="+ll0.graphics[i].attributes.h);
+                            drawLineReal.graphics[i].setSymbol(lineSymbol);
+                            //var nnn=drawLineReal.graphics[i];
+                            //drawLineReal.remove(drawLineReal.graphics[i]);
+                            //drawLineReal.add(nnn);
+                            if (browserType == 1) {
+                                try { drawLineReal.graphics[i].getShape().moveToFront(); } catch (e) {};
+                            }
+                            //drawLineReal.graphics[i].draw();
+                        }
+                    }
+                    drawLineReal = lli;
+                    for (var i = drawLineReal.graphics.length - 1; i >= 0; i--) {
+                        if (drawLineReal.graphics[i].geometry.type == "polyline" && drawLineReal.graphics[i].attributes.d == optId) {
+                            var lineSymbol = drawLineReal.graphics[i].symbol;
+                            if (optWidth != null && optWidth > 0) {
+                                if (lineAddWidth != null && lineAddWidth > 0) {
+                                    if (parseInt(optWidth) + parseInt(lineAddWidth) != lineSymbol.width) {
+                                        lineSymbol.setWidth(parseInt(optWidth) + parseInt(lineAddWidth));
+                                    }
+                                } else {
+                                    if (parseInt(optWidth) != lineSymbol.width) {
+                                        lineSymbol.setWidth(parseInt(optWidth) + parseInt(lineAddWidth));
+                                    }
+
+                                }
+                            } else {
+                                if (lineAddWidth != null && lineAddWidth > 0) {
+                                    if (parseInt(lineAddWidth) > 0) {
+                                        lineSymbol.setWidth(parseInt(drawLineReal.graphics[i].attributes.f) + parseInt(lineAddWidth));
+                                    } else {
+                                        lineSymbol.setWidth(parseInt(drawLineReal.graphics[i].attributes.f));
+                                    }
+                                } else {
+                                    lineSymbol.setWidth(parseInt(drawLineReal.graphics[i].attributes.f));
+                                }
+                            }
+                            if (optColor != null && optColor != "") {
+                                lineSymbol.setColor(new esri.Color(eval(optColor)));
+                            } else {
+                                lineSymbol.setColor(new esri.Color(eval(drawLineReal.graphics[i].attributes.h)));
+                            }
+                            //console.log("onOptShow:lineSymbol.width="+lineSymbol.width);
+                            //console.log("onOptShow:lineSymbol.h="+ll0.graphics[i].attributes.h);
+                            drawLineReal.graphics[i].setSymbol(lineSymbol);
+                            //var nnn=drawLineReal.graphics[i];
+                            //drawLineReal.remove(drawLineReal.graphics[i]);
+                            //drawLineReal.add(nnn);
+                            if (browserType == 1) {
+                                try { drawLineReal.graphics[i].getShape().moveToFront(); } catch (e) {};
+                            }
+                            //drawLineReal.graphics[i].draw();
+                        }
+                    }
+                }
+            }
+        }
+        if (isMoveMap == null || isMoveMap == true) {
+            //showOptInMapCenterByOptId(optId);
+            makeAllShowedOptCanBeSee();
+        }
+    }
+
+
+    function arcgisExceEval(js) {
+        //if (js.substr(0,1)!="{")
+        //{
+        //  window.location.reload();
+        //}
+        require(["esri/symbols/TextSymbol", "esri/symbols/Font", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleFillSymbol", "esri/geometry/Polyline", "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol", "esri/graphic", "esri/symbols/PictureMarkerSymbol", "esri/Color", "esri/geometry/Point", "dojo/dom", "dojo/on", "dojo/domReady!"], function(TextSymbol, Font, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Polyline, PictureFillSymbol, CartographicLineSymbol, Graphic, PictureMarkerSymbol, Color, Point, dom, on) {
+            eval(js);
         });
 
-        var view = new MapView({
-            container: "viewDiv",
-            map: map,
-            center: [-118.80543, 34.02700],
-            zoom: 13
-        });
-
-        var basemapToggle = new BasemapToggle({
-            view: view,
-            nextBasemap: "satellite"
-        });
-
-        view.ui.add(basemapToggle, "bottom-right");
-
-    });
+    }
     </script>
 </head>
 
 <body>
-    <div id="viewDiv"></div>
+    <div id="mapDiv"></div>
 </body>
 
 </html>
+<script>
+{}; {
+    var ift = new Font();
+    ift.setSize('7pt');
+    var la = new CartographicLineSymbol(CartographicLineSymbol.STYLE_SOLID, new Color([248, 0, 0]), 3, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5); {
+        var l = new Polyline([
+            [116.35604950982759, 39.93908465899215],
+            [115.98170618060868, 40.45164547502756]
+        ]);
+        ll0.add(new Graphic(l, la, {
+                        "ID": "ID_463125330472724",
+                        "a": "463125330472724",
+                        "b": "10002",
+                        "c": "463125143322721",
+                        "d": "463125143322721",
+                        "e": "光缆段:2012北京呼和浩特光缆(北京德外-北京延庆)(1/1/(0/60)芯/92km)一干(未设置铺设方式)(可用不足) [坐标距离： 65, 336 m]
+                        ","
+                        f ":"
+                        3 ","
+                        h ":" [248, 0, 0]
+                        ","
+                        i ":"
+                        0 ","
+                        k ":"
+                        323856584873274 ","
+                        l ":"
+                        4010201 "}));}var la=new CartographicLineSymbol(CartographicLineSymbol.STYLE_SOLID,new Color([248,0,0]), 3, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);{var l=new Polyline([[115.98170618060868,40.45164547502756],[115.49996935229782, 40.41259785999227]]);ll0.add(new Graphic(l,la,{"
+                        ID ":"
+                        ID_463125379377726 ","
+                        a ":"
+                        463125379377726 ","
+                        b ":"
+                        10002 ","
+                        c ":"
+                        463125143322721 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        光缆段: 2012 北京呼和浩特光缆(北京延庆 - 张家口怀来分公司干线机房)(1 / 2 / (0 / 60) 芯 / 69 km) 一干(未设置铺设方式)(可用不足)[坐标距离： 41, 050 m]
+                        ","
+                        f ":"
+                        3 ","
+                        h ":" [248, 0, 0]
+                        ","
+                        i ":"
+                        0 ","
+                        k ":"
+                        4010201 ","
+                        l ":"
+                        343081199395714 "}));}var la=new CartographicLineSymbol(CartographicLineSymbol.STYLE_SOLID,new Color([248,0,0]), 3, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);{var l=new Polyline([[115.49996935229782,40.41259785999227],[114.89492722273752, 40.78068962067785]]);ll0.add(new Graphic(l,la,{"
+                        ID ":"
+                        ID_463129437655740 ","
+                        a ":"
+                        463129437655740 ","
+                        b ":"
+                        10002 ","
+                        c ":"
+                        463125143322721 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        光缆段: 2012 北京呼和浩特光缆(张家口怀来分公司干线机房 - 张家口岔道桥)(1 / 3 / (0 / 60) 芯 / 89 km) 一干(未设置铺设方式)(可用不足)[坐标距离： 65, 532.1 m]
+                        ","
+                        f ":"
+                        3 ","
+                        h ":" [248, 0, 0]
+                        ","
+                        i ":"
+                        0 ","
+                        k ":"
+                        343081199395714 ","
+                        l ":"
+                        11110001 "}));}var la=new CartographicLineSymbol(CartographicLineSymbol.STYLE_SOLID,new Color([248,0,0]), 3, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);{var l=new Polyline([[114.89492722273752,40.78068962067785],[114.42335417741029, 40.671874619473606]]);ll0.add(new Graphic(l,la,{"
+                        ID ":"
+                        ID_463125565099731 ","
+                        a ":"
+                        463125565099731 ","
+                        b ":"
+                        10002 ","
+                        c ":"
+                        463125143322721 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        光缆段: 2012 北京呼和浩特光缆(张家口岔道桥 - 张家口怀安)(1 / 4 / (0 / 60) 芯 / 69 km) 一干(未设置铺设方式)(可用不足)[坐标距离： 41, 586 m]
+                        ","
+                        f ":"
+                        3 ","
+                        h ":" [248, 0, 0]
+                        ","
+                        i ":"
+                        0 ","
+                        k ":"
+                        11110001 ","
+                        l ":"
+                        11110501 "}));}var la=new CartographicLineSymbol(CartographicLineSymbol.STYLE_SOLID,new Color([248,0,0]), 3, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);{var l=new Polyline([[114.42335417741029,40.671874619473606],[113.83634555094741, 40.870118889990835]]);ll0.add(new Graphic(l,la,{"
+                        ID ":"
+                        ID_463125577734733 ","
+                        a ":"
+                        463125577734733 ","
+                        b ":"
+                        10002 ","
+                        c ":"
+                        463125143322721 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        光缆段: 2012 北京呼和浩特光缆(张家口怀安 - 乌兰察布兴和县兴和 * )(1 / 5 / (0 / 60) 芯 / 72 km) 一干(未设置铺设方式)(可用不足)[坐标距离： 54, 185.3 m]
+                        ","
+                        f ":"
+                        3 ","
+                        h ":" [248, 0, 0]
+                        ","
+                        i ":"
+                        0 ","
+                        k ":"
+                        11110501 ","
+                        l ":"
+                        33100202 "}));}var la=new CartographicLineSymbol(CartographicLineSymbol.STYLE_SOLID,new Color([248,0,0]), 3, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);{var l=new Polyline([[113.83634555094741,40.870118889990835],[113.13541690569025, 40.97685379316278]]);ll0.add(new Graphic(l,la,{"
+                        ID ":"
+                        ID_463125652267735 ","
+                        a ":"
+                        463125652267735 ","
+                        b ":"
+                        10002 ","
+                        c ":"
+                        463125143322721 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        光缆段: 2012 北京呼和浩特光缆(乌兰察布兴和县兴和 * -乌兰察布集宁 * )(1 / 6 / (0 / 60) 芯 / 75 km) 一干(未设置铺设方式)(可用不足)[坐标距离： 60, 141.2 m]
+                        ","
+                        f ":"
+                        3 ","
+                        h ":" [248, 0, 0]
+                        ","
+                        i ":"
+                        0 ","
+                        k ":"
+                        33100202 ","
+                        l ":"
+                        170356223469464 "}));}var la=new CartographicLineSymbol(CartographicLineSymbol.STYLE_SOLID,new Color([248,0,0]), 3, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);{var l=new Polyline([[113.13541690569025,40.97685379316278],[112.56919035951908, 40.8918568733372]]);ll0.add(new Graphic(l,la,{"
+                        ID ":"
+                        ID_464051909077572 ","
+                        a ":"
+                        464051909077572 ","
+                        b ":"
+                        10002 ","
+                        c ":"
+                        463125143322721 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        光缆段: 2012 北京呼和浩特光缆(乌兰察布集宁 * -乌兰察布卓资县卓资 * )(1 / 7 / (0 / 60) 芯 / 64 km) 一干(未设置铺设方式)(隐患中)(可用不足)[坐标距离： 48, 549.1 m]
+                        ","
+                        f ":"
+                        3 ","
+                        h ":" [248, 0, 0]
+                        ","
+                        i ":"
+                        0 ","
+                        k ":"
+                        170356223469464 ","
+                        l ":"
+                        33100303 "}));}var la=new CartographicLineSymbol(CartographicLineSymbol.STYLE_SOLID,new Color([248,0,0]), 3, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);{var l=new Polyline([[112.56919035951908,40.8918568733372],[112.04973379829994, 40.89410908735589]]);ll0.add(new Graphic(l,la,{"
+                        ID ":"
+                        ID_464051976014574 ","
+                        a ":"
+                        464051976014574 ","
+                        b ":"
+                        10002 ","
+                        c ":"
+                        463125143322721 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        光缆段: 2012 北京呼和浩特光缆(乌兰察布卓资县卓资 * -呼市榆林镇)(1 / 8 / (0 / 60) 芯 / 60 km) 一干(未设置铺设方式)(可用不足)[坐标距离： 43, 713 m]
+                        ","
+                        f ":"
+                        3 ","
+                        h ":" [248, 0, 0]
+                        ","
+                        i ":"
+                        0 ","
+                        k ":"
+                        33100303 ","
+                        l ":"
+                        345049157791501 "}));}var la=new CartographicLineSymbol(CartographicLineSymbol.STYLE_SOLID,new Color([248,0,0]), 3, CartographicLineSymbol.CAP_ROUND, CartographicLineSymbol.JOIN_ROUND, 5);{var l=new Polyline([[112.04973379829994,40.89410908735589],[111.70588045565911, 40.782489722975235]]);ll0.add(new Graphic(l,la,{"
+                        ID ":"
+                        ID_464052004142576 ","
+                        a ":"
+                        464052004142576 ","
+                        b ":"
+                        10002 ","
+                        c ":"
+                        463125143322721 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        光缆段: 2012 北京呼和浩特光缆(呼市榆林镇 - 呼市赛罕区金桥枢纽)(1 / 9 / (0 / 60) 芯 / 46 km) 一干(未设置铺设方式)(可用不足)[坐标距离： 31, 512.3 m]
+                        ","
+                        f ":"
+                        3 ","
+                        h ":" [248, 0, 0]
+                        ","
+                        i ":"
+                        0 ","
+                        k ":"
+                        345049157791501 ","
+                        l ":"
+                        257531807871838 "}));}var ps_a=new PictureMarkerSymbol('/cable/img/yiwubaojing.png',24,24); var ps0=new PictureMarkerSymbol('/cable/img/line_point_0.png',18,18); var ps2=new PictureMarkerSymbol('/cable/img/line_point_2.png',18,18);{var p=new Point(115.98170618060868,40.45164547502756);lp0.add(new Graphic(p,ps0,{"
+                        ID ":"
+                        ID4010201 ","
+                        a ":"
+                        4010201 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463125330472724 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        北京延庆.北京 ","
+                        f ":"
+                        18 ","
+                        i ":"
+                        0 ","
+                        z ":"
+                        0 "}));lt0.add(new Graphic(p, new TextSymbol("
+                        北京延庆.北京 ").setOffset(15, 10).setColor( new Color('#0000F0')),{"
+                        ID ":"
+                        IDT4010201 ","
+                        a ":"
+                        4010201 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463125330472724 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        ","
+                        z ":"
+                        0 "}));}{var p=new Point(114.89492722273752,40.78068962067785);lp0.add(new Graphic(p,ps0,{"
+                        ID ":"
+                        ID11110001 ","
+                        a ":"
+                        11110001 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463129437655740 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        张家口岔道桥.河北 ","
+                        f ":"
+                        18 ","
+                        i ":"
+                        0 ","
+                        z ":"
+                        0 "}));lt0.add(new Graphic(p, new TextSymbol("
+                        张家口岔道桥.河北 ").setOffset(15, 10).setColor( new Color('#0000F0')),{"
+                        ID ":"
+                        IDT11110001 ","
+                        a ":"
+                        11110001 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463129437655740 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        ","
+                        z ":"
+                        0 "}));}{var p=new Point(114.42335417741029,40.671874619473606);lp0.add(new Graphic(p,ps0,{"
+                        ID ":"
+                        ID11110501 ","
+                        a ":"
+                        11110501 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463125565099731 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        张家口怀安.河北 ","
+                        f ":"
+                        18 ","
+                        i ":"
+                        0 ","
+                        z ":"
+                        0 "}));lt0.add(new Graphic(p, new TextSymbol("
+                        张家口怀安.河北 ").setOffset(15, 10).setColor( new Color('#0000F0')),{"
+                        ID ":"
+                        IDT11110501 ","
+                        a ":"
+                        11110501 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463125565099731 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        ","
+                        z ":"
+                        0 "}));}{var p=new Point(113.83634555094741,40.870118889990835);lp0.add(new Graphic(p,ps0,{"
+                        ID ":"
+                        ID33100202 ","
+                        a ":"
+                        33100202 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463125577734733 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        乌兰察布兴和县兴和 * .内蒙古 ","
+                        f ":"
+                        18 ","
+                        i ":"
+                        0 ","
+                        z ":"
+                        0 "}));lt0.add(new Graphic(p, new TextSymbol("
+                        乌兰察布兴和县兴和 * .内蒙古 ").setOffset(15, 10).setColor( new Color('#0000F0')),{"
+                        ID ":"
+                        IDT33100202 ","
+                        a ":"
+                        33100202 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463125577734733 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        ","
+                        z ":"
+                        0 "}));}{var p=new Point(112.56919035951908,40.8918568733372);lp0.add(new Graphic(p,ps0,{"
+                        ID ":"
+                        ID33100303 ","
+                        a ":"
+                        33100303 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        464051909077572 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        乌兰察布卓资县卓资 * .内蒙古 ","
+                        f ":"
+                        18 ","
+                        i ":"
+                        0 ","
+                        z ":"
+                        0 "}));lt0.add(new Graphic(p, new TextSymbol("
+                        乌兰察布卓资县卓资 * .内蒙古 ").setOffset(15, 10).setColor( new Color('#0000F0')),{"
+                        ID ":"
+                        IDT33100303 ","
+                        a ":"
+                        33100303 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        464051909077572 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        ","
+                        z ":"
+                        0 "}));}{var p=new Point(113.13541690569025,40.97685379316278);lp0.add(new Graphic(p,ps0,{"
+                        ID ":"
+                        ID170356223469464 ","
+                        a ":"
+                        170356223469464 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463125652267735 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        乌兰察布集宁 * .内蒙古 ","
+                        f ":"
+                        18 ","
+                        i ":"
+                        0 ","
+                        z ":"
+                        0 "}));lt0.add(new Graphic(p, new TextSymbol("
+                        乌兰察布集宁 * .内蒙古 ").setOffset(15, 10).setColor( new Color('#0000F0')),{"
+                        ID ":"
+                        IDT170356223469464 ","
+                        a ":"
+                        170356223469464 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463125652267735 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        ","
+                        z ":"
+                        0 "}));}{var p=new Point(111.70588045565911,40.782489722975235);lp0.add(new Graphic(p,ps2,{"
+                        ID ":"
+                        ID257531807871838 ","
+                        a ":"
+                        257531807871838 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        464052004142576 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        呼市赛罕区金桥枢纽.内蒙古 ","
+                        f ":"
+                        18 ","
+                        i ":"
+                        0 ","
+                        z ":"
+                        0 "}));lt0.add(new Graphic(p, new TextSymbol("
+                        呼市赛罕区金桥枢纽.内蒙古 ").setOffset(15, 10).setColor( new Color('#0000F0')),{"
+                        ID ":"
+                        IDT257531807871838 ","
+                        a ":"
+                        257531807871838 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        464052004142576 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        ","
+                        z ":"
+                        0 "}));}{var p=new Point(116.35604950982759,39.93908465899215);lp0.add(new Graphic(p,ps2,{"
+                        ID ":"
+                        ID323856584873274 ","
+                        a ":"
+                        323856584873274 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463125330472724 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        北京德外.北京 ","
+                        f ":"
+                        18 ","
+                        i ":"
+                        0 ","
+                        z ":"
+                        0 "}));lt0.add(new Graphic(p, new TextSymbol("
+                        北京德外.北京 ").setOffset(15, 10).setColor( new Color('#0000F0')),{"
+                        ID ":"
+                        IDT323856584873274 ","
+                        a ":"
+                        323856584873274 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463125330472724 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        ","
+                        z ":"
+                        0 "}));}{var p=new Point(115.49996935229782,40.41259785999227);lp0.add(new Graphic(p,ps0,{"
+                        ID ":"
+                        ID343081199395714 ","
+                        a ":"
+                        343081199395714 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463125379377726 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        张家口怀来分公司干线机房.河北 ","
+                        f ":"
+                        18 ","
+                        i ":"
+                        0 ","
+                        z ":"
+                        0 "}));lt0.add(new Graphic(p, new TextSymbol("
+                        张家口怀来分公司干线机房.河北 ").setOffset(15, 10).setColor( new Color('#0000F0')),{"
+                        ID ":"
+                        IDT343081199395714 ","
+                        a ":"
+                        343081199395714 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        463125379377726 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        ","
+                        z ":"
+                        0 "}));}{var p=new Point(112.04973379829994,40.89410908735589);lp0.add(new Graphic(p,ps0,{"
+                        ID ":"
+                        ID345049157791501 ","
+                        a ":"
+                        345049157791501 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        464051976014574 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        呼市榆林镇.内蒙古 ","
+                        f ":"
+                        18 ","
+                        i ":"
+                        0 ","
+                        z ":"
+                        0 "}));lt0.add(new Graphic(p, new TextSymbol("
+                        呼市榆林镇.内蒙古 ").setOffset(15, 10).setColor( new Color('#0000F0')),{"
+                        ID ":"
+                        IDT345049157791501 ","
+                        a ":"
+                        345049157791501 ","
+                        b ":"
+                        6 ","
+                        c ":"
+                        464051976014574 ","
+                        d ":"
+                        463125143322721 ","
+                        e ":"
+                        ","
+                        z ":"
+                        0 "}));}};
+</script>

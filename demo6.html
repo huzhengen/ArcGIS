@@ -1,88 +1,35 @@
+<!DOCTYPE html>
 <html>
 
 <head>
-    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>ArcGIS JavaScript Tutorials: Create a Starter App</title>
+    <title></title>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.15/esri/css/esri.css">
+    <script src="https://js.arcgis.com/3.15/"></script>
     <style>
     html,
     body,
-    #viewDiv {
+    #map {
+        height: 100%;
         padding: 0;
         margin: 0;
-        height: 100%;
-        width: 100%;
     }
     </style>
-    <link rel="stylesheet" href="https://js.arcgis.com/4.12/esri/css/main.css">
-    <script src="https://js.arcgis.com/4.12/"></script>
-    <script>
-    require([
-        "esri/Map",
-        "esri/views/MapView",
-        //*** ADD ***//
-        "esri/layers/FeatureLayer"
-    ], function(Map, MapView, FeatureLayer) {
-
-        var map = new Map({
-            basemap: "topo-vector"
-        });
-
-        var view = new MapView({
-            container: "viewDiv",
-            map: map,
-            center: [-118.80543, 34.02700],
-            zoom: 13
-        });
-
-        // Trailheads feature layer (points)
-        var trailheadsLayer = new FeatureLayer({
-            url: "https://services3.arcgis.com/GVgbJbqm8hXASVYi/arcgis/rest/services/Trailheads/FeatureServer/0"
-        });
-
-        map.add(trailheadsLayer);
-
-        // Trails feature layer (lines)
-        var trailsLayer = new FeatureLayer({
-            url: "https://services3.arcgis.com/GVgbJbqm8hXASVYi/arcgis/rest/services/Trails/FeatureServer/0",
-            //*** ADD ***//
-            definitionExpression: "ELEV_GAIN < 250",
-
-            //*** ADD ***//
-            renderer: {
-                type: "simple",
-                symbol: {
-                    type: "simple-line",
-                    color: "green",
-                    width: "2px"
-                }
-            },
-
-            //*** ADD ***//
-            outFields: ["TRL_NAME", "ELEV_GAIN"],
-
-            //*** ADD ***//
-            popupTemplate: { // Enable a popup
-                title: "{TRL_NAME}", // Show attribute value
-                content: "The trail elevation gain is {ELEV_GAIN} ft." // Display text in pop-up
-            }
-        });
-
-        map.add(trailsLayer, 0);
-
-        // Parks and open spaces (polygons)
-        var parksLayer = new FeatureLayer({
-            url: "https://services3.arcgis.com/GVgbJbqm8hXASVYi/arcgis/rest/services/Parks_and_Open_Space/FeatureServer/0"
-        });
-
-        map.add(parksLayer, 0);
-
-    });
-    </script>
 </head>
 
-<body>
-    <div id="viewDiv"></div>
+<body class="claro">
+    <div id="map"></div>
 </body>
+<script>
+var map;
+require(["esri/map", "esri/layers/ArcGISTiledMapServiceLayer", ], function(Map, ArcGISTiledMapServiceLayer) {
+    map = new Map("map", { logo: false, slider: false, maxZoom: 18, minZoom: 3 });
+    map.centerAndZoom(new esri.geometry.Point(106, 28), 4);
+    var mapServiceLayer = new ArcGISTiledMapServiceLayer("https://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer?ak=MTU2NDUMTAwMU1UVTJORFUwTWpFMU56WTJPU000T0RBPQ__");
+    //map.hideZoomSlider();
+    map.addLayer(mapServiceLayer);
+});
+</script>
 
 </html>
