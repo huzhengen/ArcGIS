@@ -27,7 +27,7 @@ require(["esri/map", "esri/layers/ArcGISTiledMapServiceLayer", ], function(Map, 
     map = new Map("map", { logo: false, slider: false, maxZoom: 18, minZoom: 3 });
     map.centerAndZoom(new esri.geometry.Point(106, 28), 4);
     var mapServiceLayer = new ArcGISTiledMapServiceLayer("https://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer?ak=MTU2NDUMTAwMU1UVTJORFUwTWpFMU56WTJPU000T0RBPQ__");
-    //map.hideZoomSlider();
+    // map.hideZoomSlider();
     map.addLayer(mapServiceLayer);
 });
 </script>

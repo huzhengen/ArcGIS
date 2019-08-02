@@ -1,0 +1,21 @@
+{
+  "name": "ArcGIS",
+  "version": "1.0.0",
+  "description": "根目录是3.X版本的(https://developers.arcgis.com/javascript/3/)",
+  "main": "index.js",
+  "scripts": {
+    "start": "hs -c-1 -o -d -e", // 没有热更新
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huzhengen/ArcGIS.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/huzhengen/ArcGIS/issues"
+  },
+  "homepage": "https://github.com/huzhengen/ArcGIS#readme"
+}

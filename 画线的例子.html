@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
+    <title>Shapes and Symbols</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.29/esri/css/esri.css">
+    <style>
+    #info {
+        top: 20px;
+        color: #444;
+        height: auto;
+        font-family: arial;
+        right: 20px;
+        margin: 5px;
+        padding: 10px;
+        position: absolute;
+        width: 115px;
+        z-index: 40;
+        border: solid 2px #666;
+        border-radius: 4px;
+        background-color: #fff;
+    }
+
+    html,
+    body,
+    #mapDiv {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+    }
+
+    button {
+        display: block;
+    }
+    </style>
+    <script src="https://js.arcgis.com/3.29/"></script>
+    <script>
+    var map, tb;
+
+    require([
+        "esri/geometry/Polyline",
+        "esri/map", "esri/toolbars/draw",
+        "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol",
+        "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol",
+        "esri/graphic",
+        "esri/Color", "dojo/dom", "dojo/on", "dojo/domReady!"
+    ], function(
+        Polyline,
+        Map, Draw,
+        SimpleMarkerSymbol, SimpleLineSymbol,
+        PictureFillSymbol, CartographicLineSymbol,
+        Graphic,
+        Color, dom, on
+    ) {
+        map = new Map("mapDiv", {
+            basemap: "streets",
+            center: [115.98170618060868, 40.45164547502756],
+            zoom: 9
+        });
+        map.on("load", addGraphic);
+
+
+
+        // lineSymbol used for freehand polyline, polyline and line. 
+        var lineSymbol = new CartographicLineSymbol(
+            CartographicLineSymbol.STYLE_SOLID,
+            new Color([255, 0, 0]), 10,
+            CartographicLineSymbol.CAP_ROUND,
+            CartographicLineSymbol.JOIN_MITER, 5
+        );
+
+
+
+        function addGraphic() {
+
+            map.enableMapNavigation();
+
+            let geo1 = new Polyline([
+                [116.35604950982759, 39.93908465899215],
+                [115.98170618060868, 40.45164547502756]
+            ])
+            let geo2 = new Polyline([
+                [115.98170618060868, 40.45164547502756],
+                [115.49996935229782, 40.41259785999227]
+            ]);
+
+
+            map.graphics.add(new Graphic(geo1, lineSymbol));
+            map.graphics.add(new Graphic(geo2, lineSymbol));
+        }
+    });
+    </script>
+</head>
+
+<body>
+    <div id="info">
+        <div>Select a shape then draw on map to add graphic</div>
+        <button id="Point">Point</button>
+        <button id="Multipoint">Multipoint</button>
+        <button id="Line">Line</button>
+        <button id="Polyline">Polyline</button>
+        <button id="FreehandPolyline">Freehand Polyline</button>
+        <button id="Triangle">Triangle</button>
+        <button id="Extent">Rectangle</button>
+        <button id="Circle">Circle</button>
+        <button id="Ellipse">Ellipse</button>
+        <button id="Polygon">Polygon</button>
+        <button id="FreehandPolygon">Freehand Polygon</button>
+    </div>
+    <div id="mapDiv"></div>
+</body>
+
+</html>
