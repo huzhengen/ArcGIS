@@ -4,7 +4,7 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
-    <title>Shapes and Symbols</title>
+    <title>画线的小例子</title>
     <link rel="stylesheet" href="https://js.arcgis.com/3.15/esri/css/esri.css">
     <style>
     html,
@@ -13,10 +13,6 @@
         padding: 0;
         margin: 0;
         height: 100%;
-    }
-
-    button {
-        display: block;
     }
     </style>
     <script src="https://js.arcgis.com/3.15/"></script>
@@ -39,7 +35,7 @@
         Color, dom, on
     ) {
         map = new Map("mapDiv", { logo: false, slider: false, maxZoom: 18, minZoom: 3 });
-        map.centerAndZoom(new esri.geometry.Point(115.98170618060868, 40.45164547502756), 9);
+        map.centerAndZoom(new esri.geometry.Point(121.48, 31.22), 5);
         var mapServiceLayer = new ArcGISTiledMapServiceLayer("https://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer?ak=MTU2NDUMTAwMU1UVTJORFUwTWpFMU56WTJPU000T0RBPQ__");
         //map.hideZoomSlider();
         map.addLayer(mapServiceLayer);
@@ -51,29 +47,26 @@
         // });
         map.on("load", addGraphic);
 
-
-
         // lineSymbol used for freehand polyline, polyline and line. 
         var lineSymbol = new CartographicLineSymbol(
             CartographicLineSymbol.STYLE_SOLID,
-            new Color([255, 0, 0]), 10,
+            new Color([255, 0, 0]), 2,
             CartographicLineSymbol.CAP_ROUND,
             CartographicLineSymbol.JOIN_MITER, 5
         );
 
-
-
         function addGraphic() {
+            console.log(map.getZoom())
 
             map.enableMapNavigation();
 
             let geo1 = new Polyline([
-                [116.35604950982759, 39.93908465899215],
-                [115.98170618060868, 40.45164547502756]
+                [116.46, 39.92],
+                [121.48, 31.22]
             ])
             let geo2 = new Polyline([
-                [115.98170618060868, 40.45164547502756],
-                [115.49996935229782, 40.41259785999227]
+                [121.48, 31.22],
+                [113.27, 23.13]
             ]);
 
 
@@ -81,6 +74,12 @@
             map.graphics.add(new Graphic(geo2, lineSymbol));
         }
     });
+
+    // window.onload = () => {
+    //     document.getElementById('mapDiv').onclick = () => {
+    //         map.centerAndZoom(new esri.geometry.Point(106, 28), 4);
+    //     }
+    // }
     </script>
 </head>
 
