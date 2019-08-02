@@ -5,24 +5,8 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
     <title>Shapes and Symbols</title>
-    <link rel="stylesheet" href="https://js.arcgis.com/3.29/esri/css/esri.css">
+    <link rel="stylesheet" href="https://js.arcgis.com/3.15/esri/css/esri.css">
     <style>
-    #info {
-        top: 20px;
-        color: #444;
-        height: auto;
-        font-family: arial;
-        right: 20px;
-        margin: 5px;
-        padding: 10px;
-        position: absolute;
-        width: 115px;
-        z-index: 40;
-        border: solid 2px #666;
-        border-radius: 4px;
-        background-color: #fff;
-    }
-
     html,
     body,
     #mapDiv {
@@ -35,30 +19,36 @@
         display: block;
     }
     </style>
-    <script src="https://js.arcgis.com/3.29/"></script>
+    <script src="https://js.arcgis.com/3.15/"></script>
     <script>
-    var map, tb;
+    var map;
 
     require([
         "esri/geometry/Polyline",
         "esri/map", "esri/toolbars/draw",
         "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol",
         "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol",
-        "esri/graphic",
+        "esri/graphic", "esri/layers/ArcGISTiledMapServiceLayer",
         "esri/Color", "dojo/dom", "dojo/on", "dojo/domReady!"
     ], function(
         Polyline,
         Map, Draw,
         SimpleMarkerSymbol, SimpleLineSymbol,
         PictureFillSymbol, CartographicLineSymbol,
-        Graphic,
+        Graphic, ArcGISTiledMapServiceLayer,
         Color, dom, on
     ) {
-        map = new Map("mapDiv", {
-            basemap: "streets",
-            center: [115.98170618060868, 40.45164547502756],
-            zoom: 9
-        });
+        map = new Map("mapDiv", { logo: false, slider: false, maxZoom: 18, minZoom: 3 });
+        map.centerAndZoom(new esri.geometry.Point(115.98170618060868, 40.45164547502756), 9);
+        var mapServiceLayer = new ArcGISTiledMapServiceLayer("https://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer?ak=MTU2NDUMTAwMU1UVTJORFUwTWpFMU56WTJPU000T0RBPQ__");
+        //map.hideZoomSlider();
+        map.addLayer(mapServiceLayer);
+
+        // map = new Map("mapDiv", {
+        //     basemap: "streets",
+        //     center: [115.98170618060868, 40.45164547502756],
+        //     zoom: 9
+        // });
         map.on("load", addGraphic);
 
 
@@ -95,20 +85,6 @@
 </head>
 
 <body>
-    <div id="info">
-        <div>Select a shape then draw on map to add graphic</div>
-        <button id="Point">Point</button>
-        <button id="Multipoint">Multipoint</button>
-        <button id="Line">Line</button>
-        <button id="Polyline">Polyline</button>
-        <button id="FreehandPolyline">Freehand Polyline</button>
-        <button id="Triangle">Triangle</button>
-        <button id="Extent">Rectangle</button>
-        <button id="Circle">Circle</button>
-        <button id="Ellipse">Ellipse</button>
-        <button id="Polygon">Polygon</button>
-        <button id="FreehandPolygon">Freehand Polygon</button>
-    </div>
     <div id="mapDiv"></div>
 </body>
 
