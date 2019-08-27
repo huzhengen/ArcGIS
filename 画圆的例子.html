@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
+    <title>画圆的小例子</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.15/esri/css/esri.css">
+    <style>
+    html,
+    body,
+    #mapDiv {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+    }
+    </style>
+    <script src="https://js.arcgis.com/3.15/"></script>
+    <script>
+    var map;
+
+    require([
+        "esri/map",
+        "esri/layers/GraphicsLayer",
+        "dojo/on", "dojo/query", "dojo/colors",
+        "esri/graphic",
+        "esri/layers/ArcGISTiledMapServiceLayer",
+        "esri/symbols/SimpleMarkerSymbol",
+        "esri/symbols/SimpleLineSymbol",
+        "esri/symbols/SimpleFillSymbol",
+        "esri/geometry/Point",
+        "esri/geometry/Polyline", "esri/geometry/Polygon",
+        "esri/geometry/Circle",
+        "dojo/domReady!"
+    ], function(Map,
+        GraphicsLayer,
+        on, query, Color,
+        Graphic,
+        ArcGISTiledMapServiceLayer,
+        SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, Point, Polyline, Polygon, Circle) {
+        map = new Map("mapDiv", { logo: false, slider: false, maxZoom: 18, minZoom: 3 });
+        map.centerAndZoom(new esri.geometry.Point(121.48, 31.22), 5);
+        var mapServiceLayer = new ArcGISTiledMapServiceLayer("https://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer?ak=MTU2NDUMTAwMU1UVTJORFUwTWpFMU56WTJPU000T0RBPQ__");
+        //map.hideZoomSlider();
+        map.addLayer(mapServiceLayer);
+
+        // map = new Map("mapDiv", {
+        //     basemap: "streets",
+        //     center: [115.98170618060868, 40.45164547502756],
+        //     zoom: 9
+        // });
+        map.on("load", addGraphic);
+
+
+
+        function addGraphic() {
+
+            map.enableMapNavigation();
+
+
+            // map.graphics.add(new Graphic(myMultiPoint1))
+
+
+            // map.graphics.add(new Graphic(x, fillSymbol));
+
+
+            var symbol = new SimpleFillSymbol().setColor(null).outline.setColor("blue");
+            var gl = new GraphicsLayer({ id: "circles" });
+            // var geodesic = dom.byId("geodesic");
+            map.addLayer(gl);
+            
+                var circle = new Circle({
+                    center: [106,34],
+                    // geodesic: domAttr.get(geodesic, "checked"),
+                    radius: 200
+                });
+                var graphic = new Graphic(circle, symbol);
+                gl.add(graphic);
+
+
+      
+
+            // var circleGeometry = new Circle([106, 34], {
+            //     "radius": 2000
+            // });
+          
+            // graphic = new Graphic(geometry);
+            // map.graphics.add(graphic)
+
+        }
+    });
+
+    // window.onload = () => {
+    //     document.getElementById('mapDiv').onclick = () => {
+    //         map.centerAndZoom(new esri.geometry.Point(106, 28), 4);
+    //     }
+    // }
+    </script>
+</head>
+
+<body>
+    <div id="mapDiv"></div>
+</body>
+
+</html>

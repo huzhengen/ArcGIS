@@ -119,13 +119,19 @@
             } else if (evt.geometry.type === "line" || evt.geometry.type === "polyline") {
                 console.log(evt.geometry)
                 symbol = lineSymbol;
-            } else {
+            } else {                
                 symbol = fillSymbol;
             }
+            console.log(String(evt.geometry))
+            // console.log(JSON.stringify(evt.geometry))
+            console.log(evt.geometry === JSON.parse(JSON.stringify(evt.geometry)))
             console.log(JSON.stringify(evt.geometry))
-            console.log(JSON.stringify(evt.geometry.cache))
 
             map.graphics.add(new Graphic(evt.geometry, symbol));
+            console.log(map.graphics.graphics)
+            console.log(map.graphics.graphics[1].geometry.toJson())
+
+            // app.map._layers.drawGraphics_poly.graphics[0].toJson();
         }
     });
     </script>
